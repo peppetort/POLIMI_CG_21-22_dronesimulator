@@ -34,6 +34,8 @@ protected:
 	// Pipelines [Shader couples]
 	Pipeline P1;
 
+	DescriptorSet DS_global;
+
 	// Models, textures and Descriptors (values assigned to the uniforms)
 	Model M_Terrain;
 	Texture T_Terrain;
@@ -41,15 +43,20 @@ protected:
 
 	Model M_Palm;
 	Texture T_Palm;
-	Texture test;
 	DescriptorSet DS_Palm1;	// instance DSLobj
 	//DescriptorSet DS_Palm2;	// instance DSLobj
 	//DescriptorSet DS_Palm3;	// instance DSLobj
 
+	//Need to fix texture
+	Model M_Drone;
+	Texture T_Drone;
+	DescriptorSet DS_Drone;	// instance DSLobj
 
-	DescriptorSet DS_global;
-
-
+	//Centre for fans: 
+		//global x :+- 1.083, +-1.0723
+		//global y: 1.0736, -1.0816s
+		//z = 0.328
+	//Scale *0.68
 
 
 	DescriptorSetLayout SkyBoxDescriptorSetLayout; // for skybox
@@ -67,9 +74,9 @@ protected:
 		initialBackgroundColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 
 		// Descriptor pool sizes
-		uniformBlocksInPool = 6;
-		texturesInPool = 5;
-		setsInPool = 6;
+		uniformBlocksInPool = 8;
+		texturesInPool = 4;
+		setsInPool = 8;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -110,7 +117,7 @@ protected:
 						{1, TEXTURE, 0, &T_Terrain}
 			});
 
-		M_Palm.init(this, "models/MapleTree.obj");
+		M_Palm.init(this, "models/DeadTree.obj");
 		T_Palm.init(this, "textures/maple_bark.png");
 		DS_Palm1.init(this, &DSLobj, {
 					{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
@@ -124,6 +131,14 @@ protected:
 					{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 					{1, TEXTURE, 0, &T_Palm}
 			});*/
+
+		M_Drone.init(this, "models/fan.obj");//LOADING DRONE MODEL BREAKS EVERYTHING
+		T_Drone.init(this, "textures/skybox.png");
+		DS_Drone.init(this, &DSLobj, {
+					{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+					{1, TEXTURE, 0, &T_Drone}
+			});
+
 
 
 		SkyBoxDescriptorSetLayout.init(this, {
@@ -157,6 +172,10 @@ protected:
 		DS_Palm3.cleanup();*/
 		M_Palm.cleanup();
 		T_Palm.cleanup();
+
+		DS_Drone.cleanup();
+		T_Drone.cleanup();
+		M_Drone.cleanup();
 
 		DS_global.cleanup();
 
@@ -225,6 +244,22 @@ protected:
 			0, nullptr);
 		vkCmdDrawIndexed(commandBuffer,
 			static_cast<uint32_t>(M_Palm.indices.size()), 1, 0, 0, 0);*/
+
+
+		VkBuffer vertexBuffers4[] = { M_Drone.vertexBuffer };
+		VkDeviceSize offsets4[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers4, offsets4);
+		vkCmdBindIndexBuffer(commandBuffer, M_Drone.indexBuffer, 0,
+			VK_INDEX_TYPE_UINT32);
+		vkCmdBindDescriptorSets(commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			P1.pipelineLayout, 1, 1, &DS_Drone.descriptorSets[currentImage],
+			0, nullptr);
+		vkCmdDrawIndexed(commandBuffer,
+			static_cast<uint32_t>(M_Drone.indices.size()), 1, 0, 0, 0);
+
+
+
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 			SkyBoxPipeline.graphicsPipeline);
@@ -356,6 +391,14 @@ protected:
 		//	sizeof(ubo), 0, &data);
 		//memcpy(data, &ubo, sizeof(ubo));
 		//vkUnmapMemory(device, DS_Palm3.uniformBuffersMemory[0][currentImage]);
+
+		// For the drone
+		ubo.model =glm::mat4(1.0f);
+		vkMapMemory(device, DS_Drone.uniformBuffersMemory[0][currentImage], 0,
+			sizeof(ubo), 0, &data);
+		memcpy(data, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, DS_Drone.uniformBuffersMemory[0][currentImage]);
+
 
 		SkyBoxUniformBufferObject subo{};
 
