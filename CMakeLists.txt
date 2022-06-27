@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 function(add_shader TARGET SHADER SHADER_OUT_NAME)
     find_program(GLSLC glslc)
@@ -34,7 +34,8 @@ target_include_directories (CG_project
     PUBLIC ${Vulkan_INCLUDE_DIRS}
 )
 
-include_directories(headers)
+SET(BASEPATH "${CMAKE_SOURCE_DIR}")
+INCLUDE_DIRECTORIES("${BASEPATH}" headers)
 target_compile_features(CG_project PRIVATE cxx_std_17)
 
 target_link_libraries (CG_project glfw)

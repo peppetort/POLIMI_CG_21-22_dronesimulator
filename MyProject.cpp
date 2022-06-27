@@ -76,9 +76,9 @@ protected:
 		initialBackgroundColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 
 		// Descriptor pool sizes
-		uniformBlocksInPool = 12;
-		texturesInPool = 5;
-		setsInPool = 12;
+		uniformBlocksInPool = 20;
+		texturesInPool = 20;
+		setsInPool = 20;
 	}
 
 	// Here you load and setup all your Vulkan objects
@@ -103,11 +103,11 @@ protected:
 		// Pipelines [Shader couples]
 		// The last array, is a vector of pointer to the layouts of the sets that will
 		// be used in this pipeline. The first element will be set 0, and so on..
-		P1.init(this, "shaders/vert.spv", "shaders/frag.spv", { &DSLglobal, &DSLobj });
+		P1.init(this, "../shaders/vert.spv", "../shaders/frag.spv", { &DSLglobal, &DSLobj });
 
 		// Terrain
-		M_Terrain.init(this, "models/Terrain.obj");
-		T_Terrain.init(this, "textures/PaloDuroPark.jpg");
+		M_Terrain.init(this, "../models/Terrain.obj");
+		T_Terrain.init(this, "../textures/PaloDuroPark.jpg");
 		DS_Terrain.init(this, &DSLobj, {
 			// the second parameter, is a pointer to the Uniform Set Layout of this set
 			// the last parameter is an array, with one element per binding of the set.
@@ -120,8 +120,8 @@ protected:
 			});
 
 		// Tree
-		M_Palm.init(this, "models/DeadTree.obj");
-		T_Palm.init(this, "textures/maple_bark.png");
+		M_Palm.init(this, "../models/DeadTree.obj");
+		T_Palm.init(this, "../textures/maple_bark.png");
 		DS_Palm1.init(this, &DSLobj, {
 					{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 					{1, TEXTURE, 0, &T_Palm}
@@ -129,8 +129,8 @@ protected:
 
 		// Drone
 
-		M_Drone.init(this, "models/droneFixed.obj");
-		T_Drone.init(this, "textures/White.png");
+		M_Drone.init(this, "../models/droneFixed.obj");
+		T_Drone.init(this, "../textures/White.png");
 		DS_Drone.init(this, &DSLobj, {
 					{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 					{1, TEXTURE, 0, &T_Drone}
@@ -138,7 +138,7 @@ protected:
 
 		// Fans
 
-		M_Fan.init(this, "models/fan.obj");
+		M_Fan.init(this, "../models/fan.obj");
 		DS_Fan1.init(this, &DSLobj, {
 					{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 					{1, TEXTURE, 0, &T_Drone}
@@ -167,11 +167,11 @@ protected:
 			{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 
-		SkyBoxPipeline.init(this, "shaders/SkyBoxvert.spv", "shaders/SkyBoxfrag.spv", { &SkyBoxDescriptorSetLayout});
+		SkyBoxPipeline.init(this, "../shaders/SkyBoxvert.spv", "../shaders/SkyBoxfrag.spv", { &SkyBoxDescriptorSetLayout});
 
 
-		M_SkyBox.init(this, "models/SkyBoxCube.obj");
-		T_SkyBox.init(this, "textures/skybox.png");
+		M_SkyBox.init(this, "../models/SkyBoxCube.obj");
+		T_SkyBox.init(this, "../textures/skybox.png");
 		DS_SkyBox.init(this, &SkyBoxDescriptorSetLayout, {
 					{0, UNIFORM, sizeof(SkyBoxUniformBufferObject), nullptr},
 					{1, TEXTURE, 0, &T_SkyBox}
