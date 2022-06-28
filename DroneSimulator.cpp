@@ -340,31 +340,31 @@ protected:
         keys_status[GLFW_KEY_LEFT] = glfwGetKey(window, GLFW_KEY_LEFT);
 
         if (keys_status[GLFW_KEY_W] == GLFW_PRESS) {
-            drone.onMoveForward(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveForward(deltaT, &cameraPosition);
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_W] == GLFW_RELEASE) {
-            drone.onMoveForwardRelease(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveForwardRelease(deltaT, &cameraPosition);
         }
 
         if (keys_status[GLFW_KEY_S] == GLFW_PRESS) {
-            drone.onMoveBackward(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveBackward(deltaT, &cameraPosition);
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_S] == GLFW_RELEASE) {
-            drone.onMoveBackwardRelease(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveBackwardRelease(deltaT, &cameraPosition);
         }
 
         if (keys_status[GLFW_KEY_D] == GLFW_PRESS) {
-            drone.onMoveRight(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveRight(deltaT, &cameraPosition);
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_D] == GLFW_RELEASE) {
-            drone.onMoveRightRelease(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveRightRelease(deltaT, &cameraPosition);
         }
 
         if (keys_status[GLFW_KEY_A] == GLFW_PRESS) {
-            drone.onMoveLeft(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveLeft(deltaT, &cameraPosition);
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_A] == GLFW_RELEASE) {
-            drone.onMoveLeftRelease(deltaT, cameraAngle.y, &cameraPosition);
+            drone.onMoveLeftRelease(deltaT, &cameraPosition);
         }
 
         if (keys_status[GLFW_KEY_UP] == GLFW_PRESS) {
@@ -382,6 +382,14 @@ protected:
         }
 
 
+        if (keys_status[GLFW_KEY_RIGHT] == GLFW_PRESS) {
+            drone.onLookRight(deltaT, &cameraAngle, &cameraPosition);
+        }
+        if (keys_status[GLFW_KEY_LEFT] == GLFW_PRESS) {
+            drone.onLookLeft(deltaT, &cameraAngle, &cameraPosition);
+        }
+
+
         if (!atLeastOneKeyPressed) {
             drone.deactivateFans();
         }
@@ -390,13 +398,13 @@ protected:
         glm::mat4 cameraMatrix = glm::lookAt(cameraPosition, drone.position, glm::vec3(0, 1, 0));
 
 
-        glm::mat3 CamDir = glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.y, glm::vec3(0.0f, 1.0f, 0.0f))) *
+/*        glm::mat3 CamDir = glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.y, glm::vec3(0.0f, 1.0f, 0.0f))) *
                            glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.z, glm::vec3(1.0f, 0.0f, 0.0f))) *
-                           glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.x, glm::vec3(0.0f, 0.0f, 1.0f)));
+                           glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.x, glm::vec3(0.0f, 0.0f, 1.0f)));*/
 
         GlobalUniformBufferObject gubo{};
         gubo.view = cameraMatrix;
-        gubo.proj = glm::perspective(glm::radians(45.0f),
+        gubo.proj = glm::perspective(glm::radians(60.0f),
                                      swapChainExtent.width / (float) swapChainExtent.height,
                                      0.1f, 50.0f);
         gubo.proj[1][1] *= -1;
@@ -426,7 +434,7 @@ protected:
 
         /*---- SKYBOX ----*/
 
-        SkyBoxUniformBufferObject subo{};
+/*        SkyBoxUniformBufferObject subo{};
 
         void *dataSB;
 
@@ -441,7 +449,7 @@ protected:
         vkMapMemory(device, DS_SkyBox.uniformBuffersMemory[0][currentImage], 0,
                     sizeof(subo), 0, &dataSB);
         memcpy(dataSB, &subo, sizeof(subo));
-        vkUnmapMemory(device, DS_SkyBox.uniformBuffersMemory[0][currentImage]);
+        vkUnmapMemory(device, DS_SkyBox.uniformBuffersMemory[0][currentImage]);*/
 
     }
 
