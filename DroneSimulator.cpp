@@ -339,7 +339,7 @@ protected:
         keys_status[GLFW_KEY_LEFT].actualStatus = glfwGetKey(window, GLFW_KEY_LEFT);
 
         if (keys_status[GLFW_KEY_W].actualStatus == GLFW_PRESS) {
-            drone.onMoveForward(deltaT, cameraAngle.y);
+            drone.onMoveForward(deltaT, cameraAngle.y, &cameraPosition);
             keys_status[GLFW_KEY_W].lastStatus = GLFW_PRESS;
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_W].actualStatus == GLFW_RELEASE &&
@@ -349,7 +349,7 @@ protected:
         }
 
         if (keys_status[GLFW_KEY_S].actualStatus == GLFW_PRESS) {
-            drone.onMoveBackward(deltaT, cameraAngle.y);
+            drone.onMoveBackward(deltaT, cameraAngle.y, &cameraPosition);
             keys_status[GLFW_KEY_S].lastStatus = GLFW_PRESS;
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_S].actualStatus == GLFW_RELEASE &&
@@ -359,7 +359,7 @@ protected:
         }
 
         if (keys_status[GLFW_KEY_D].actualStatus == GLFW_PRESS) {
-            drone.onMoveRight(deltaT, cameraAngle.y);
+            drone.onMoveRight(deltaT, cameraAngle.y, &cameraPosition);
             keys_status[GLFW_KEY_D].lastStatus = GLFW_PRESS;
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_D].actualStatus == GLFW_RELEASE &&
@@ -369,7 +369,7 @@ protected:
         }
 
         if (keys_status[GLFW_KEY_A].actualStatus == GLFW_PRESS) {
-            drone.onMoveLeft(deltaT, cameraAngle.y);
+            drone.onMoveLeft(deltaT, cameraAngle.y, &cameraPosition);
             keys_status[GLFW_KEY_A].lastStatus = GLFW_PRESS;
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_A].actualStatus == GLFW_RELEASE &&
@@ -379,13 +379,23 @@ protected:
         }
 
         if (keys_status[GLFW_KEY_UP].actualStatus == GLFW_PRESS) {
-            drone.onMoveUp(deltaT);
+            drone.onMoveUp(deltaT, &cameraPosition);
             keys_status[GLFW_KEY_UP].lastStatus = GLFW_PRESS;
             atLeastOneKeyPressed = true;
         } else if (keys_status[GLFW_KEY_UP].actualStatus == GLFW_RELEASE &&
                    keys_status[GLFW_KEY_UP].lastStatus != GLFW_RELEASE) {
             drone.onMoveUpRelease();
             keys_status[GLFW_KEY_UP].lastStatus = GLFW_RELEASE;
+        }
+
+        if (keys_status[GLFW_KEY_RIGHT].actualStatus == GLFW_PRESS) {
+            drone.onViewRight(deltaT);
+            keys_status[GLFW_KEY_RIGHT].lastStatus = GLFW_PRESS;
+            atLeastOneKeyPressed = true;
+        } else if (keys_status[GLFW_KEY_RIGHT].actualStatus == GLFW_RELEASE &&
+                   keys_status[GLFW_KEY_RIGHT].lastStatus != GLFW_RELEASE) {
+            //drone.onMoveUpRelease();
+            keys_status[GLFW_KEY_RIGHT].lastStatus = GLFW_RELEASE;
         }
 
         if(!atLeastOneKeyPressed){
