@@ -50,6 +50,11 @@ public:
         descriptorSet.cleanup();
     }
 
+    void cleanUpNoTexture() {
+        model.cleanup();
+        descriptorSet.cleanup();
+    }
+
 };
 
 class Drone {

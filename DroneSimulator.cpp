@@ -200,7 +200,7 @@ protected:
 
         droneBaseModel.cleanUp();
         for (auto &i: fansArray) {
-            i.cleanUp();
+            i.cleanUpNoTexture();
         }
 
         DS_global.cleanup();
