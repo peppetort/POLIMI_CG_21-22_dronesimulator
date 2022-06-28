@@ -7,6 +7,11 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
 };
 
+struct KeyStatus {
+    int actualStatus;
+    int lastStatus;
+};
+
 static auto startTime = std::chrono::high_resolution_clock::now();
 
 
@@ -51,6 +56,8 @@ class Drone {
 private:
     const float MOVE_SPEED = 10.f;
     const float FAN_SPEED = 1000.f;
+    const float INCLINATION_SPEED = 1.f;
+    const float MAX_INCLINATION = glm::radians(10.f);
     bool areFansActive = false;
 
 public:
@@ -59,7 +66,7 @@ public:
 
     glm::mat4 worldMatrix = glm::mat4(1.0f);
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::quat direction = glm::quat(1, 0, 0, 0);
+    glm::quat direction = glm::quat(glm::vec3(0.f, 0.f, 0.f));
     float scale_factor = 0.3f;
 
     Drone(BaseModel *droneBaseModelPtr, BaseModel fanBaseModelList[4]) {
@@ -67,13 +74,9 @@ public:
         this->fanBaseModelList = fanBaseModelList;
     }
 
-    Drone(BaseModel *droneBaseModelPtr) {
-        this->droneBaseModel = droneBaseModelPtr;
-    }
-
     void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
         glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
-        auto droneRotation = glm::mat4(direction);
+        glm::mat4 droneRotation = glm::mat4(direction);
         glm::mat4 droneScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
         worldMatrix = droneTranslation * droneRotation * droneScaling;
         (*uboPtr).model = worldMatrix;
@@ -88,36 +91,35 @@ public:
                 (currentTime - startTime).count();
 
         //Drawing fans
-        glm::mat4 fanRotation = areFansActive ? glm::rotate(glm::mat4(1.0f), time * FAN_SPEED * glm::radians(90.0f),
-                                                            glm::vec3(0.0f, 1.0f, 0.0f)) : glm::mat4(1.f) *
-                                                                                           glm::rotate(glm::mat4(1.0f),
-                                                                                                       glm::radians(
-                                                                                                               180.0f),
-                                                                                                       glm::vec3(0.0f,
-                                                                                                                 0.0f,
-                                                                                                                 1.0f));
-        glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor * 0.68f));
-        for (int i = 0; i < 4; i++) {
+        glm::mat4 fansActiveRotation = areFansActive ? glm::rotate(glm::mat4(1.0f),
+                                                                   time * FAN_SPEED * glm::radians(90.0f),
+                                                                   glm::vec3(0.0f, 1.0f, 0.0f)) : glm::mat4(1.f);
+        glm::mat4 inclinationRotation = glm::mat4(direction);
 
-            glm::mat4 fanTranslation;
+        glm::mat4 fanRotation = inclinationRotation * fansActiveRotation;
+        glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor * 0.68f));
+
+        for (int i = 0; i < 4; i++) {
+            glm::mat4 fanTranslationWithDrone = glm::translate(glm::mat4(1.f), position);
+            glm::mat4 fanTranslationWRTDroneCenter;
             switch (i) {
                 case 0:
-                    fanTranslation = glm::translate(glm::mat4(1.0f), position + glm::vec3(-0.33f, 0.13f, -0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.33f, 0.1f, -0.33f));
                     break;
                 case 1:
-                    fanTranslation = glm::translate(glm::mat4(1.0f), position + glm::vec3(0.33f, 0.13f, 0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.33f, 0.1f, 0.33f));
                     break;
                 case 2:
-                    fanTranslation = glm::translate(glm::mat4(1.0f), position + glm::vec3(-0.33f, 0.13f, 0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.33f, 0.1f, 0.33f));
                     break;
                 case 3:
-                    fanTranslation = glm::translate(glm::mat4(1.0f), position + glm::vec3(0.33f, 0.13f, -0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.33f, 0.1f, -0.33f));
                     break;
                 default:
-                    fanTranslation = glm::mat4(1.f);
+                    fanTranslationWRTDroneCenter = glm::mat4(1.f);
             }
 
-            (*uboPtr).model = fanTranslation * fanRotation * fanScaling;
+            (*uboPtr).model = fanTranslationWithDrone * fanRotation * fanTranslationWRTDroneCenter * fanScaling;
 
             vkMapMemory(*devicePtr, fanBaseModelList[i].descriptorSet.uniformBuffersMemory[0][currentImage], 0,
                         sizeof(*uboPtr), 0, &dataPtr);
@@ -126,41 +128,61 @@ public:
         }
     }
 
-    void fall() {
-        areFansActive = false;
-    }
-
-    void moveDown(float deltaT) {
-        position.y -= deltaT * MOVE_SPEED;
-    }
-
-    void moveUp(float deltaT) {
+    void onMoveUp(float deltaT) {
         position.y += deltaT * MOVE_SPEED;
         areFansActive = true;
     }
 
-    void moveForward(float deltaT, float lookYaw) {
+    void onMoveUpRelease() {
+        //TODO: gravity effect
+    }
+
+    void onMoveForward(float deltaT, float lookYaw) {
         position -= MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
                                                        glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0, 0, 1, 1)) * deltaT;
+        direction.x -= abs(direction.x) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
         areFansActive = true;
     }
 
-    void moveBackward(float deltaT, float lookYaw) {
+    void onMoveForwardRelease() {
+        direction.x = 0.f;
+    }
+
+    void onMoveBackward(float deltaT, float lookYaw) {
         position += MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
                                                        glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0, 0, 1, 1)) * deltaT;
+        direction.x += abs(direction.x) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
         areFansActive = true;
     }
 
-    void moveLeft(float deltaT, float lookYaw) {
+    void onMoveBackwardRelease() {
+        direction.x = 0.f;
+    }
+
+    void onMoveLeft(float deltaT, float lookYaw) {
         position -= MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
                                                        glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(1, 0, 0, 1)) * deltaT;
+        direction.z += abs(direction.z) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
         areFansActive = true;
     }
 
-    void moveRight(float deltaT, float lookYaw) {
+    void onMoveLeftRelease() {
+        direction.z = 0.f;
+    }
+
+    void onMoveRight(float deltaT, float lookYaw) {
         position += MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
                                                        glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(1, 0, 0, 1)) * deltaT;
+        direction.z -= abs(direction.z) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
         areFansActive = true;
+    }
+
+    void onMoveRightRelease() {
+        direction.z = 0.f;
+    }
+
+    void deactivateFans() {
+        areFansActive = false;
     }
 
 
