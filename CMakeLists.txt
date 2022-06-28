@@ -27,7 +27,7 @@ find_package(Vulkan REQUIRED FATAL_ERROR)
 find_package(glfw3 REQUIRED FATAL_ERROR)
 
 
-add_executable(CG_project MyProject.cpp)
+add_executable(CG_project DroneSimulator.cpp)
 
 target_include_directories (CG_project
     PUBLIC ${GLFW_INCLUDE_DIRS}

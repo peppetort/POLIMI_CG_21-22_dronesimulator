@@ -20,7 +20,7 @@ struct SkyBoxUniformBufferObject {
 
 
 // MAIN !
-class MyProject : public BaseProject {
+class DroneSimulator : public BaseProject {
 private:
     glm::vec3 cameraAngle = glm::vec3(0.0f);
     glm::vec3 cameraPosition = glm::vec3(0.0f, 1.6f, 3.0f);
@@ -417,7 +417,7 @@ protected:
 
 // This is the main: probably you do not need to touch this!
 int main() {
-    MyProject app;
+    DroneSimulator app;
 
     try {
         app.run();
