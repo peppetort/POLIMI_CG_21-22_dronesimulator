@@ -7,11 +7,6 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
 };
 
-struct KeyStatus {
-    int actualStatus;
-    int lastStatus;
-};
-
 static auto startTime = std::chrono::high_resolution_clock::now();
 
 
@@ -59,12 +54,16 @@ public:
 
 class Drone {
 private:
-    const float MOVE_SPEED = 10.f;
-    const float FAN_SPEED = 100.f;
+    const float MAX_MOVE_SPEED = 10.f;
+    const float FAN_MAX_SPEED = 100.f;
+    const float FAN_MIN_SPEED = 20.f;
     const float INCLINATION_SPEED = 1.f;
-    const float ROTATION_SPEED = 10.f;
     const float MAX_INCLINATION = glm::radians(10.f);
-    bool areFansActive = false;
+
+    float fanSpeed = FAN_MIN_SPEED;
+    float moveSpeedHorizontal1[2] = {0.f, 0.f};
+    float moveSpeedHorizontal2[2] = {0.f, 0.f};
+    float moveSpeedVertical[2] = {0.f, 0.f};
 
 public:
     BaseModel *droneBaseModel;
@@ -97,9 +96,9 @@ public:
                 (currentTime - startTime).count();
 
         //Drawing fans
-        glm::mat4 fansActiveRotation = areFansActive ? glm::rotate(glm::mat4(1.0f),
-                                                                   time * FAN_SPEED * glm::radians(90.0f),
-                                                                   glm::vec3(0.0f, 1.0f, 0.0f)) : glm::mat4(1.f);
+        glm::mat4 fansActiveRotation = fanSpeed > 0.f ? glm::rotate(glm::mat4(1.0f),
+                                                                    time * fanSpeed * glm::radians(90.0f),
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) : glm::mat4(1.f);
         glm::mat4 inclinationRotation = glm::mat4(direction);
 
         glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor * 0.68f));
@@ -124,7 +123,9 @@ public:
                     fanTranslationWRTDroneCenter = glm::mat4(1.f);
             }
 
-            (*uboPtr).model =fanTranslationWithDrone * inclinationRotation * fanTranslationWRTDroneCenter * fanScaling * fansActiveRotation;
+            (*uboPtr).model =
+                    fanTranslationWithDrone * inclinationRotation * fanTranslationWRTDroneCenter * fanScaling *
+                    fansActiveRotation;
 
             vkMapMemory(*devicePtr, fanBaseModelList[i].descriptorSet.uniformBuffersMemory[0][currentImage], 0,
                         sizeof(*uboPtr), 0, &dataPtr);
@@ -134,78 +135,178 @@ public:
     }
 
     void onMoveUp(float deltaT, glm::vec3 *cameraPosition) {
-        position.y += deltaT * MOVE_SPEED;
-        (*cameraPosition).y += deltaT * MOVE_SPEED;
-        areFansActive = true;
+        activeFans();
+        moveSpeedVertical[1] = 0.f;
+        moveSpeedVertical[0] += moveSpeedVertical[0] < MAX_MOVE_SPEED ? MAX_MOVE_SPEED / 150 : 0.f;
+        position.y += deltaT * moveSpeedVertical[0];
+        (*cameraPosition).y += deltaT * moveSpeedVertical[0];
     }
 
-    void onMoveUpRelease() {
-        //TODO: gravity effect
+
+    void onMoveUpRelease(float deltaT, glm::vec3 *cameraPosition) {
+        moveSpeedVertical[0] -= moveSpeedVertical[0] > 0.f ? 0.1f : 0.f;
+        if (moveSpeedVertical[0] < 0.f) {
+            moveSpeedVertical[0] = 0.f;
+        }
+        position.y += deltaT * moveSpeedVertical[0];
+        (*cameraPosition).y += deltaT * moveSpeedVertical[0];
+    }
+
+    void onMoveDown(float deltaT, glm::vec3 *cameraPosition) {
+        activeFans();
+        moveSpeedVertical[0] = 0.f;
+        moveSpeedVertical[1] += moveSpeedVertical[1] < MAX_MOVE_SPEED ? MAX_MOVE_SPEED / 50 : 0.f;
+        position.y -= deltaT * moveSpeedVertical[1];
+        (*cameraPosition).y -= deltaT * moveSpeedVertical[1];
+    }
+
+    void onMoveDownRelease(float deltaT, glm::vec3 *cameraPosition) {
+        moveSpeedVertical[1] -= moveSpeedVertical[1] > 0.f ? 0.1f : 0.f;
+        if (moveSpeedVertical[1] < 0.f) {
+            moveSpeedVertical[1] = 0.f;
+        }
+        position.y -= deltaT * moveSpeedVertical[1];
+        (*cameraPosition).y -= deltaT * moveSpeedVertical[1];
     }
 
     void onMoveForward(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
-        position -= MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                       glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0, 0, 1, 1)) * deltaT;
-        *cameraPosition -= MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                              glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0, 0, 1, 1)) *
+        activeFans();
+        moveSpeedHorizontal1[1] = 0.f;
+        moveSpeedHorizontal1[0] += moveSpeedHorizontal1[0] < MAX_MOVE_SPEED ? MAX_MOVE_SPEED / 100 : 0.f;
+        position -= moveSpeedHorizontal1[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(0, 0, 1, 1)) *
+                    deltaT;
+        *cameraPosition -= moveSpeedHorizontal1[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(0, 0, 1, 1)) *
                            deltaT;
         direction.x -= abs(direction.x) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
-        areFansActive = true;
     }
 
-    void onMoveForwardRelease() {
-        direction.x = 0.f;
+    void onMoveForwardRelease(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
+        moveSpeedHorizontal1[0] -= moveSpeedHorizontal1[0] > 0.f ? 0.05f : 0.f;
+        if (moveSpeedHorizontal1[0] < 0.f) {
+            moveSpeedHorizontal1[0] = 0.f;
+        }
+        position -= moveSpeedHorizontal1[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(0, 0, 1, 1)) *
+                    deltaT;
+        *cameraPosition -= moveSpeedHorizontal1[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(0, 0, 1, 1)) *
+                           deltaT;
+        direction.x += direction.x < 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
     }
 
     void onMoveBackward(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
-        position += MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                       glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0, 0, 1, 1)) * deltaT;
-        *cameraPosition += MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                              glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0, 0, 1, 1)) *
+        activeFans();
+        moveSpeedHorizontal1[0] = 0.f;
+        moveSpeedHorizontal1[1] += moveSpeedHorizontal1[1] < MAX_MOVE_SPEED ? MAX_MOVE_SPEED / 100 : 0.f;
+        position += moveSpeedHorizontal1[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(0, 0, 1, 1)) *
+                    deltaT;
+        *cameraPosition += moveSpeedHorizontal1[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(0, 0, 1, 1)) *
                            deltaT;
         direction.x += abs(direction.x) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
-        areFansActive = true;
     }
 
-    void onMoveBackwardRelease() {
-        direction.x = 0.f;
+    void onMoveBackwardRelease(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
+        moveSpeedHorizontal1[1] -= moveSpeedHorizontal1[1] > 0.f ? 0.05f : 0.f;
+        if (moveSpeedHorizontal1[1] < 0.f) {
+            moveSpeedHorizontal1[1] = 0.f;
+        }
+        position += moveSpeedHorizontal1[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(0, 0, 1, 1)) *
+                    deltaT;
+        *cameraPosition += moveSpeedHorizontal1[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(0, 0, 1, 1)) *
+                           deltaT;
+        direction.x -= direction.x > 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
     }
 
     void onMoveLeft(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
-        position -= MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                       glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(1, 0, 0, 1)) * deltaT;
-        *cameraPosition -= MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                              glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(1, 0, 0, 1)) *
+        activeFans();
+        moveSpeedHorizontal2[1] = 0.f;
+        moveSpeedHorizontal2[0] += moveSpeedHorizontal2[0] < MAX_MOVE_SPEED ? MAX_MOVE_SPEED / 100 : 0.f;
+        position -= moveSpeedHorizontal2[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(1, 0, 0, 1)) *
+                    deltaT;
+        *cameraPosition -= moveSpeedHorizontal2[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(1, 0, 0, 1)) *
                            deltaT;
         direction.z += abs(direction.z) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
-        areFansActive = true;
     }
 
-    void onMoveLeftRelease() {
-        direction.z = 0.f;
+    void onMoveLeftRelease(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
+        moveSpeedHorizontal2[0] -= moveSpeedHorizontal2[0] > 0.f ? 0.05f : 0.f;
+        if (moveSpeedHorizontal2[0] < 0.f) {
+            moveSpeedHorizontal2[0] = 0.f;
+        }
+        position -= moveSpeedHorizontal2[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(1, 0, 0, 1)) *
+                    deltaT;
+        *cameraPosition -= moveSpeedHorizontal2[0] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(1, 0, 0, 1)) *
+                           deltaT;
+        direction.z -= direction.z > 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
     }
 
     void onMoveRight(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
-        position += MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                       glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(1, 0, 0, 1)) * deltaT;
-        *cameraPosition += MOVE_SPEED * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
-                                                              glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(1, 0, 0, 1)) *
+        activeFans();
+        moveSpeedHorizontal2[0] = 0.f;
+        moveSpeedHorizontal2[1] += moveSpeedHorizontal2[1] < MAX_MOVE_SPEED ? MAX_MOVE_SPEED / 100 : 0.f;
+        position += moveSpeedHorizontal2[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(1, 0, 0, 1)) *
+                    deltaT;
+        *cameraPosition += moveSpeedHorizontal2[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(1, 0, 0, 1)) *
                            deltaT;
         direction.z -= abs(direction.z) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED : 0.f;
-        areFansActive = true;
     }
 
-    void onMoveRightRelease() {
-        direction.z = 0.f;
+    void onMoveRightRelease(float deltaT, float lookYaw, glm::vec3 *cameraPosition) {
+        moveSpeedHorizontal2[1] -= moveSpeedHorizontal2[1] > 0.f ? 0.05f : 0.f;
+        if (moveSpeedHorizontal2[1] < 0.f) {
+            moveSpeedHorizontal2[1] = 0.f;
+        }
+        position += moveSpeedHorizontal2[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                        glm::vec4(1, 0, 0, 1)) *
+                    deltaT;
+        *cameraPosition += moveSpeedHorizontal2[1] * glm::vec3(glm::rotate(glm::mat4(1.0f), lookYaw,
+                                                                           glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                                               glm::vec4(1, 0, 0, 1)) *
+                           deltaT;
+        direction.z += direction.z < 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
     }
 
     void onViewRight(float deltaT) {
         //direction.y -= deltaT * ROTATION_SPEED;
-        areFansActive = true;
+        activeFans();
+    }
+
+    void activeFans() {
+        fanSpeed += fanSpeed < FAN_MAX_SPEED ? 0.2f : 0.f;
+        if (fanSpeed > FAN_MAX_SPEED) {
+            fanSpeed = FAN_MAX_SPEED;
+        }
     }
 
     void deactivateFans() {
-        areFansActive = false;
+        fanSpeed = FAN_MIN_SPEED;
     }
 
 
