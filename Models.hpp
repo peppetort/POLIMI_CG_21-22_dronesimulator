@@ -160,6 +160,7 @@ public:
         this->fanBaseModelList = fanBaseModelList;
     }
 
+
     void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
         glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
         glm::mat4 droneRotation = glm::mat4(glm::quat(glm::vec3(0, direction.y, 0)) *
