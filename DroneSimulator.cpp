@@ -327,8 +327,6 @@ protected:
         float deltaT = time - lastTime;
         lastTime = time;
 
-        bool atLeastOneKeyPressed = false;
-
         keys_status[GLFW_KEY_A] = glfwGetKey(window, GLFW_KEY_A);
         keys_status[GLFW_KEY_S] = glfwGetKey(window, GLFW_KEY_S);
         keys_status[GLFW_KEY_D] = glfwGetKey(window, GLFW_KEY_D);
@@ -339,59 +337,18 @@ protected:
         keys_status[GLFW_KEY_RIGHT] = glfwGetKey(window, GLFW_KEY_RIGHT);
         keys_status[GLFW_KEY_LEFT] = glfwGetKey(window, GLFW_KEY_LEFT);
 
-        if (keys_status[GLFW_KEY_W] == GLFW_PRESS) {
-            drone.onMoveForward(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_W] == GLFW_RELEASE) {
-            drone.onMoveForwardRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_S] == GLFW_PRESS) {
-            drone.onMoveBackward(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_S] == GLFW_RELEASE) {
-            drone.onMoveBackwardRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_D] == GLFW_PRESS) {
-            drone.onMoveRight(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_D] == GLFW_RELEASE) {
-            drone.onMoveRightRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_A] == GLFW_PRESS) {
-            drone.onMoveLeft(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_A] == GLFW_RELEASE) {
-            drone.onMoveLeftRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_UP] == GLFW_PRESS) {
-            drone.onMoveUp(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_UP] == GLFW_RELEASE) {
-            drone.onMoveUpRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_DOWN] == GLFW_PRESS) {
-            drone.onMoveDown(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_DOWN] == GLFW_RELEASE) {
-            drone.onMoveDownRelease(deltaT, &cameraPosition);
-        }
-
+        drone.move(deltaT, glm::vec3(0, 0, -1), &cameraPosition, keys_status[GLFW_KEY_W]);
+        drone.move(deltaT, glm::vec3(0, 0, 1), &cameraPosition, keys_status[GLFW_KEY_S]);
+        drone.move(deltaT, glm::vec3(-1, 0, 0), &cameraPosition, keys_status[GLFW_KEY_A]);
+        drone.move(deltaT, glm::vec3(1, 0, 0), &cameraPosition, keys_status[GLFW_KEY_D]);
+        drone.move(deltaT, glm::vec3(0, 1, 0), &cameraPosition, keys_status[GLFW_KEY_UP]);
+        drone.move(deltaT, glm::vec3(0, -1, 0), &cameraPosition, keys_status[GLFW_KEY_DOWN]);
 
         if (keys_status[GLFW_KEY_RIGHT] == GLFW_PRESS) {
-            drone.onLookRight(deltaT, &cameraAngle, &cameraPosition);
+            drone.onLookRight(deltaT, &cameraPosition);
         }
         if (keys_status[GLFW_KEY_LEFT] == GLFW_PRESS) {
-            drone.onLookLeft(deltaT, &cameraAngle, &cameraPosition);
-        }
-
-
-        if (!atLeastOneKeyPressed) {
-            drone.deactivateFans();
+            drone.onLookLeft(deltaT, &cameraPosition);
         }
 
 
