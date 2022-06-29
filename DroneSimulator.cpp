@@ -108,56 +108,14 @@ protected:
         P1.init(this, "../shaders/shaderDroneVert.spv", "../shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj});
 
         // Terrain
-/*        M_Terrain.init(this, "../models/Terrain.obj");
-        T_Terrain.init(this, "../textures/PaloDuroPark.jpg");
-        DS_Terrain.init(this, &DSLobj, {
-                // the second parameter, is a pointer to the Uniform Set Layout of this set
-                // the last parameter is an array, with one element per binding of the set.
-                // first  elmenet : the binding number
-                // second element : UNIFORM or TEXTURE (an enum) depending on the type
-                // third  element : only for UNIFORMs, the size of the corresponding C++ object
-                // fourth element : only for TEXTUREs, the pointer to the corresponding texture object
-                {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-                {1, TEXTURE, 0,                           &T_Terrain}
-        });*/
         terrainBaseModel.init("../models/Terrain.obj", "../textures/PaloDuroPark.jpg");
 
-
         // Drone
-
         droneBaseModel.init("../models/droneFixed.obj", "../textures/White.png");
-        //fanBaseModel.init("../models/fan.obj");
-
-//        M_Drone.init(this, "../models/droneFixed.obj");
-//        T_Drone.init(this, "../textures/White.png");
-//        DS_Drone.init(this, &DSLobj, {
-//                {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-//                {1, TEXTURE, 0,                           &T_Drone}
-//        });
-//
-//        // Fans
+        // Fans
         for (auto &i: fansArray) {
             i.init("../models/fan.obj");
         }
-
-//
-//        M_Fan.init(this, "../models/fan.obj");
-//        DS_Fan1.init(this, &DSLobj, {
-//                {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-//                {1, TEXTURE, 0,                           &T_Drone}
-//        });
-//        DS_Fan2.init(this, &DSLobj, {
-//                {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-//                {1, TEXTURE, 0,                           &T_Drone}
-//        });
-//        DS_Fan3.init(this, &DSLobj, {
-//                {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-//                {1, TEXTURE, 0,                           &T_Drone}
-//        });
-//        DS_Fan4.init(this, &DSLobj, {
-//                {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-//                {1, TEXTURE, 0,                           &T_Drone}
-//        });
 
         /*---- SKYBOX ----*/
 
@@ -184,20 +142,7 @@ protected:
 
     // Here you destroy all the objects you created!
     void localCleanup() {
-/*        DS_Terrain.cleanup();
-        T_Terrain.cleanup();
-        M_Terrain.cleanup();*/
         terrainBaseModel.cleanUp();
-
-//        DS_Drone.cleanup();
-//        T_Drone.cleanup();
-//        M_Drone.cleanup();
-//
-//        DS_Fan1.cleanup();
-//        DS_Fan2.cleanup();
-//        DS_Fan3.cleanup();
-//        DS_Fan4.cleanup();
-//        M_Fan.cleanup();
 
         droneBaseModel.cleanUp();
         for (auto &i: fansArray) {
@@ -273,30 +218,7 @@ protected:
             vkCmdDrawIndexed(commandBuffer,
                              static_cast<uint32_t>(fanBaseModel.model.indices.size()), 1, 0, 0, 0);
         }
-
-
-//        vkCmdBindDescriptorSets(commandBuffer,
-//                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-//                                P1.pipelineLayout, 1, 1, &DS_Fan2.descriptorSets[currentImage],
-//                                0, nullptr);
-//        vkCmdDrawIndexed(commandBuffer,
-//                         static_cast<uint32_t>(M_Fan.indices.size()), 1, 0, 0, 0);
-//
-//        vkCmdBindDescriptorSets(commandBuffer,
-//                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-//                                P1.pipelineLayout, 1, 1, &DS_Fan3.descriptorSets[currentImage],
-//                                0, nullptr);
-//        vkCmdDrawIndexed(commandBuffer,
-//                         static_cast<uint32_t>(M_Fan.indices.size()), 1, 0, 0, 0);
-//
-//        vkCmdBindDescriptorSets(commandBuffer,
-//                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-//                                P1.pipelineLayout, 1, 1, &DS_Fan4.descriptorSets[currentImage],
-//                                0, nullptr);
-//        vkCmdDrawIndexed(commandBuffer,
-//                         static_cast<uint32_t>(M_Fan.indices.size()), 1, 0, 0, 0);
-
-
+        
 
         //Pipeline for skybox
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -327,8 +249,6 @@ protected:
         float deltaT = time - lastTime;
         lastTime = time;
 
-        bool atLeastOneKeyPressed = false;
-
         keys_status[GLFW_KEY_A] = glfwGetKey(window, GLFW_KEY_A);
         keys_status[GLFW_KEY_S] = glfwGetKey(window, GLFW_KEY_S);
         keys_status[GLFW_KEY_D] = glfwGetKey(window, GLFW_KEY_D);
@@ -339,61 +259,19 @@ protected:
         keys_status[GLFW_KEY_RIGHT] = glfwGetKey(window, GLFW_KEY_RIGHT);
         keys_status[GLFW_KEY_LEFT] = glfwGetKey(window, GLFW_KEY_LEFT);
 
-        if (keys_status[GLFW_KEY_W] == GLFW_PRESS) {
-            drone.onMoveForward(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_W] == GLFW_RELEASE) {
-            drone.onMoveForwardRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_S] == GLFW_PRESS) {
-            drone.onMoveBackward(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_S] == GLFW_RELEASE) {
-            drone.onMoveBackwardRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_D] == GLFW_PRESS) {
-            drone.onMoveRight(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_D] == GLFW_RELEASE) {
-            drone.onMoveRightRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_A] == GLFW_PRESS) {
-            drone.onMoveLeft(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_A] == GLFW_RELEASE) {
-            drone.onMoveLeftRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_UP] == GLFW_PRESS) {
-            drone.onMoveUp(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_UP] == GLFW_RELEASE) {
-            drone.onMoveUpRelease(deltaT, &cameraPosition);
-        }
-
-        if (keys_status[GLFW_KEY_DOWN] == GLFW_PRESS) {
-            drone.onMoveDown(deltaT, &cameraPosition);
-            atLeastOneKeyPressed = true;
-        } else if (keys_status[GLFW_KEY_DOWN] == GLFW_RELEASE) {
-            drone.onMoveDownRelease(deltaT, &cameraPosition);
-        }
-
+        drone.move(deltaT, glm::vec3(0, 0, -1), &cameraPosition, keys_status[GLFW_KEY_W]);
+        drone.move(deltaT, glm::vec3(0, 0, 1), &cameraPosition, keys_status[GLFW_KEY_S]);
+        drone.move(deltaT, glm::vec3(-1, 0, 0), &cameraPosition, keys_status[GLFW_KEY_A]);
+        drone.move(deltaT, glm::vec3(1, 0, 0), &cameraPosition, keys_status[GLFW_KEY_D]);
+        drone.move(deltaT, glm::vec3(0, 1, 0), &cameraPosition, keys_status[GLFW_KEY_UP]);
+        drone.move(deltaT, glm::vec3(0, -1, 0), &cameraPosition, keys_status[GLFW_KEY_DOWN]);
 
         if (keys_status[GLFW_KEY_RIGHT] == GLFW_PRESS) {
-            drone.onLookRight(deltaT, &cameraAngle, &cameraPosition);
+            drone.onLookRight(deltaT, &cameraPosition);
         }
         if (keys_status[GLFW_KEY_LEFT] == GLFW_PRESS) {
-            drone.onLookLeft(deltaT, &cameraAngle, &cameraPosition);
+            drone.onLookLeft(deltaT, &cameraPosition);
         }
-
-
-        if (!atLeastOneKeyPressed) {
-            drone.deactivateFans();
-        }
-
 
         glm::mat4 cameraMatrix = glm::lookAt(cameraPosition, drone.position, glm::vec3(0, 1, 0));
 
@@ -429,7 +307,6 @@ protected:
         memcpy(data, &ubo, sizeof(ubo));
         vkUnmapMemory(device, terrainBaseModel.descriptorSet.uniformBuffersMemory[0][currentImage]);
 
-        // Draw drone (with fans)
         drone.draw(currentImage, &ubo, &data, &device);
 
         /*---- SKYBOX ----*/
