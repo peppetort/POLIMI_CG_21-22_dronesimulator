@@ -105,7 +105,7 @@ protected:
         // Pipelines [Shader couples]
         // The last array, is a vector of pointer to the layouts of the sets that will
         // be used in this pipeline. The first element will be set 0, and so on..
-        P1.init(this, "../shaders/vert.spv", "../shaders/frag.spv", {&DSLglobal, &DSLobj});
+        P1.init(this, "../shaders/shaderDroneVert.spv", "../shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj});
 
         // Terrain
 /*        M_Terrain.init(this, "../models/Terrain.obj");
@@ -170,7 +170,7 @@ protected:
                 {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
         });
 
-        SkyBoxPipeline.init(this, "../shaders/SkyBoxvert.spv", "../shaders/SkyBoxfrag.spv",
+        SkyBoxPipeline.init(this, "../shaders/SkyBoxVert.spv", "../shaders/SkyBoxFrag.spv",
                             {&SkyBoxDescriptorSetLayout});
 
 
