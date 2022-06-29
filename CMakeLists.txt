@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 function(add_shader TARGET SHADER SHADER_OUT_NAME)
     find_program(GLSLC glslc)
@@ -27,20 +27,21 @@ find_package(Vulkan REQUIRED FATAL_ERROR)
 find_package(glfw3 REQUIRED FATAL_ERROR)
 
 
-add_executable(CG_project MyProject.cpp)
+add_executable(CG_project DroneSimulator.cpp)
 
 target_include_directories (CG_project
     PUBLIC ${GLFW_INCLUDE_DIRS}
     PUBLIC ${Vulkan_INCLUDE_DIRS}
 )
 
-include_directories(headers)
+SET(BASEPATH "${CMAKE_SOURCE_DIR}")
+INCLUDE_DIRECTORIES("${BASEPATH}" headers)
 target_compile_features(CG_project PRIVATE cxx_std_17)
 
 target_link_libraries (CG_project glfw)
 target_link_libraries (CG_project ${Vulkan_LIBRARIES})
 
-add_shader(CG_project shader.frag frag)
-add_shader(CG_project shader.vert vert)
-add_shader(CG_project shaderSkyBox.frag SkyBoxfrag)
-add_shader(CG_project shaderSkyBox.vert SkyBoxvert)
+add_shader(CG_project shaderDrone.frag shaderDroneFrag)
+add_shader(CG_project shaderDrone.vert shaderDroneVert)
+add_shader(CG_project shaderSkyBox.frag SkyBoxFrag)
+add_shader(CG_project shaderSkyBox.vert SkyBoxVert)
