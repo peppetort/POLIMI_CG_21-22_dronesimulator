@@ -344,7 +344,7 @@ protected:
         terrain.draw(currentImage, &ubo, &data, &device);
 
         // Draw drone (with fans)
-        drone.draw(currentImage, &ubo, &data, &device, deltaT);
+        drone.draw(currentImage, &ubo, &data, &device);
 
         /*---- SKYBOX ----*/
 

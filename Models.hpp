@@ -102,25 +102,26 @@ private:
 
     const float SCALE_FACTOR = 0.015f;
 
-    const float FAN_MAX_SPEED = 10.f;
-    const float FAN_MIN_SPEED = 0.f;
-    const float FAN_DECELERATION_RATE = 0.1f;
-    const float FAN_ACCELERATION_RATE = 0.3f;
+    const float FAN_MAX_SPEED = 30.f;
+    const float FAN_MIN_SPEED = 10.f;
+    const float FAN_DECELERATION_RATE = 0.5f;
+    const float FAN_ACCELERATION_RATE = 0.5f;
 
-    const float MIN_FAN_SPEED_TO_MOVE = 6.f;
+    const float MIN_FAN_SPEED_TO_MOVE = 18.f;
 
     const float DRONE_MAX_SPEED = 15.f;
 
     const float DRONE_ACCELERATION_RATE = 0.5f;
-    const float DRONE_DECELERATION_RATE = 0.2f;
+    const float DRONE_DECELERATION_RATE = 0.1f;
 
     const float INCLINATION_SPEED = glm::radians(45.f);
     const float MAX_INCLINATION = glm::radians(15.f);
 
-    const float ROTATION_SPEED = 2.f;
+    const float ROTATION_SPEED = glm::radians(35.f);
 
     // internal variables
     float fanSpeed = FAN_MIN_SPEED;
+    glm::quat fanRotation = glm::quat(glm::vec3(0));
 
     std::map<DroneDirections, glm::vec3> directionToVectorMap = {
             {DroneDirections::F, glm::vec3(0, 0, -1)},
@@ -172,7 +173,7 @@ public:
                                                  BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
                                                  BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline)} {};
 
-    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr, float deltaT) {
+    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
 
         glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
         glm::mat4 droneRotation = glm::mat4(lookDirection) * glm::mat4(direction);
@@ -180,15 +181,14 @@ public:
         glm::mat4 droneWorldMatrix = droneTranslation * droneRotation * droneScaling;
         droneBaseModel.draw(currentImage, uboPtr, dataPtr, devicePtr, droneWorldMatrix);
 
+
         //Drawing fans
-        glm::mat4 fansActiveRotation = fanSpeed > 0.f ? glm::rotate(glm::mat4(1.0f),
-                                                                    deltaT * fanSpeed * glm::radians(-90.0f),
-                                                                    glm::vec3(0.0f, 1.0f, 0.0f)) : glm::mat4(1.f);
+        fanRotation = glm::rotate(fanRotation, -glm::radians(fanSpeed), glm::vec3(0, 1, 0));
 
         glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(SCALE_FACTOR));
         glm::mat4 fanTranslationWithDrone = glm::translate(glm::mat4(1.f), position);
         glm::mat4 movesAndInclination = fanTranslationWithDrone * droneRotation;
-        glm::mat4 scalingAndRotation = fanScaling;
+        glm::mat4 scalingAndRotation = fanScaling * glm::mat4(fanRotation);
 
         glm::mat4 positioningWRTDrone = glm::translate(glm::mat4(1.0f), glm::vec3(0.54f, 0.26f, -0.4f));
         glm::mat4 fanWorldMatrix = movesAndInclination * positioningWRTDrone * scalingAndRotation;
@@ -274,22 +274,22 @@ public:
 
 
     void activateFans() {
-        //std::cout << fanSpeed << std::endl;
         if (fanSpeed >= FAN_MAX_SPEED) {
             return;
         }
         fanSpeed += fanSpeed < FAN_MAX_SPEED ? FAN_ACCELERATION_RATE : 0.f;
+        std::cout << "ACTIVATE: " << fanSpeed << std::endl;
     }
 
     void deactivateFans() {
-        if (fanSpeed == 0.f) {
+        if (fanSpeed == FAN_MIN_SPEED) {
             return;
         }
-        //std::cout << fanSpeed << std::endl;
         fanSpeed -= fanSpeed > FAN_MIN_SPEED ? FAN_DECELERATION_RATE : 0.f;
         if (fanSpeed < FAN_MIN_SPEED) {
-            fanSpeed = 0.f;
+            fanSpeed = FAN_MIN_SPEED;
         }
+        std::cout << "DEACTIVATE: " << fanSpeed << std::endl;
     }
 
     void moveView(float deltaT, float v) {
