@@ -50,13 +50,15 @@ protected:
     DescriptorSet DS_global;
 
     //Terrain
-    BaseModel terrainBaseModel = BaseModel(this, &DSLobj);
+    BaseModel terrainBaseModel = BaseModel(this, &DSLobj, &P1);
+    Terrain terrain = Terrain(&terrainBaseModel);
 
     // Drone
-    BaseModel droneBaseModel = BaseModel(this, &DSLobj);
+    BaseModel droneBaseModel = BaseModel(this, &DSLobj, &P1);
     //Fans
-    BaseModel fansArray[4] = {BaseModel(this, &DSLobj), BaseModel(this, &DSLobj), BaseModel(this, &DSLobj),
-                              BaseModel(this, &DSLobj)};
+    BaseModel fansArray[4] = {BaseModel(this, &DSLobj, &P1), BaseModel(this, &DSLobj, &P1),
+                              BaseModel(this, &DSLobj, &P1),
+                              BaseModel(this, &DSLobj, &P1)};
 
     Drone drone = Drone(&droneBaseModel, fansArray);
 
@@ -108,13 +110,13 @@ protected:
         P1.init(this, "../shaders/shaderDroneVert.spv", "../shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj});
 
         // Terrain
-        terrainBaseModel.init("../models/Terrain.obj", "../textures/PaloDuroPark.jpg");
+        terrainBaseModel.init("../models/Terrain.obj", "../textures/cliff1Color.png");
 
         // Drone
-        droneBaseModel.init("../models/droneFixed.obj", "../textures/White.png");
+        droneBaseModel.init("../models/test.obj", "../textures/drone.png");
         // Fans
         for (auto &i: fansArray) {
-            i.init("../models/fan.obj");
+            i.init("../models/test2.obj");
         }
 
         /*---- SKYBOX ----*/
@@ -146,7 +148,7 @@ protected:
 
         droneBaseModel.cleanUp();
         for (auto &i: fansArray) {
-            i.cleanUpNoTexture();
+            i.cleanUp();
         }
 
         DS_global.cleanup();
@@ -177,64 +179,70 @@ protected:
                                 P1.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
                                 0, nullptr);
 
-        // Terrain
-        VkBuffer vertexBuffers[] = {terrainBaseModel.model.vertexBuffer};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, terrainBaseModel.model.indexBuffer, 0,
-                             VK_INDEX_TYPE_UINT32);
-        vkCmdBindDescriptorSets(commandBuffer,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                P1.pipelineLayout, 1, 1, &terrainBaseModel.descriptorSet.descriptorSets[currentImage],
-                                0, nullptr);
-        vkCmdDrawIndexed(commandBuffer,
-                         static_cast<uint32_t>(terrainBaseModel.model.indices.size()), 1, 0, 0, 0);
-
-
-        // Drone
-        VkBuffer vertexBuffers4[] = {droneBaseModel.model.vertexBuffer};
-        VkDeviceSize offsets4[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers4, offsets4);
-        vkCmdBindIndexBuffer(commandBuffer, droneBaseModel.model.indexBuffer, 0,
-                             VK_INDEX_TYPE_UINT32);
-        vkCmdBindDescriptorSets(commandBuffer,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                P1.pipelineLayout, 1, 1, &droneBaseModel.descriptorSet.descriptorSets[currentImage],
-                                0, nullptr);
-        vkCmdDrawIndexed(commandBuffer,
-                         static_cast<uint32_t>(droneBaseModel.model.indices.size()), 1, 0, 0, 0);
-
-//        // Fans
+        terrainBaseModel.populateCommandBuffer(&commandBuffer, currentImage);
+        droneBaseModel.populateCommandBuffer(&commandBuffer, currentImage);
         for (auto &fanBaseModel: fansArray) {
-            VkBuffer vertexBuffers5[] = {fanBaseModel.model.vertexBuffer};
-            VkDeviceSize offsets5[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers5, offsets5);
-            vkCmdBindIndexBuffer(commandBuffer, fanBaseModel.model.indexBuffer, 0,
-                                 VK_INDEX_TYPE_UINT32);
-            vkCmdBindDescriptorSets(commandBuffer,
-                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    P1.pipelineLayout, 1, 1, &fanBaseModel.descriptorSet.descriptorSets[currentImage],
-                                    0, nullptr);
-            vkCmdDrawIndexed(commandBuffer,
-                             static_cast<uint32_t>(fanBaseModel.model.indices.size()), 1, 0, 0, 0);
+            fanBaseModel.populateCommandBuffer(&commandBuffer, currentImage);
         }
-        
+
+//        // Terrain
+//        VkBuffer vertexBuffers[] = {terrainBaseModel.model.vertexBuffer};
+//        VkDeviceSize offsets[] = {0};
+//        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+//        vkCmdBindIndexBuffer(commandBuffer, terrainBaseModel.model.indexBuffer, 0,
+//                             VK_INDEX_TYPE_UINT32);
+//        vkCmdBindDescriptorSets(commandBuffer,
+//                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                                P1.pipelineLayout, 1, 1, &terrainBaseModel.descriptorSet.descriptorSets[currentImage],
+//                                0, nullptr);
+//        vkCmdDrawIndexed(commandBuffer,
+//                         static_cast<uint32_t>(terrainBaseModel.model.indices.size()), 1, 0, 0, 0);
+
+
+//        // Drone
+//        VkBuffer vertexBuffers4[] = {droneBaseModel.model.vertexBuffer};
+//        VkDeviceSize offsets4[] = {0};
+//        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers4, offsets4);
+//        vkCmdBindIndexBuffer(commandBuffer, droneBaseModel.model.indexBuffer, 0,
+//                             VK_INDEX_TYPE_UINT32);
+//        vkCmdBindDescriptorSets(commandBuffer,
+//                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                                P1.pipelineLayout, 1, 1, &droneBaseModel.descriptorSet.descriptorSets[currentImage],
+//                                0, nullptr);
+//        vkCmdDrawIndexed(commandBuffer,
+//                         static_cast<uint32_t>(droneBaseModel.model.indices.size()), 1, 0, 0, 0);
+//
+//        // Fans
+//        for (auto &fanBaseModel: fansArray) {
+//            VkBuffer vertexBuffers5[] = {fanBaseModel.model.vertexBuffer};
+//            VkDeviceSize offsets5[] = {0};
+//            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers5, offsets5);
+//            vkCmdBindIndexBuffer(commandBuffer, fanBaseModel.model.indexBuffer, 0,
+//                                 VK_INDEX_TYPE_UINT32);
+//            vkCmdBindDescriptorSets(commandBuffer,
+//                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                                    P1.pipelineLayout, 1, 1, &fanBaseModel.descriptorSet.descriptorSets[currentImage],
+//                                    0, nullptr);
+//            vkCmdDrawIndexed(commandBuffer,
+//                             static_cast<uint32_t>(fanBaseModel.model.indices.size()), 1, 0, 0, 0);
+//        }
+
 
         //Pipeline for skybox
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          SkyBoxPipeline.graphicsPipeline);
-
-        VkBuffer vertexBuffers2[] = {M_SkyBox.vertexBuffer};
-        VkDeviceSize offsets2[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers2, offsets2);
-        vkCmdBindIndexBuffer(commandBuffer, M_SkyBox.indexBuffer, 0,
-                             VK_INDEX_TYPE_UINT32);
-        vkCmdBindDescriptorSets(commandBuffer,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                SkyBoxPipeline.pipelineLayout, 0, 1, &DS_SkyBox.descriptorSets[currentImage],
-                                0, nullptr);
-        vkCmdDrawIndexed(commandBuffer,
-                         static_cast<uint32_t>(M_SkyBox.indices.size()), 1, 0, 0, 0);
+//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                          SkyBoxPipeline.graphicsPipeline);
+//
+//        VkBuffer vertexBuffers2[] = {M_SkyBox.vertexBuffer};
+//        VkDeviceSize offsets2[] = {0};
+//        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers2, offsets2);
+//        vkCmdBindIndexBuffer(commandBuffer, M_SkyBox.indexBuffer, 0,
+//                             VK_INDEX_TYPE_UINT32);
+//        vkCmdBindDescriptorSets(commandBuffer,
+//                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                                SkyBoxPipeline.pipelineLayout, 0, 1, &DS_SkyBox.descriptorSets[currentImage],
+//                                0, nullptr);
+//        vkCmdDrawIndexed(commandBuffer,
+//                         static_cast<uint32_t>(M_SkyBox.indices.size()), 1, 0, 0, 0);
     }
 
     // Here is where you update the uniforms.
@@ -249,15 +257,46 @@ protected:
         float deltaT = time - lastTime;
         lastTime = time;
 
+        bool isAtLeastOneKeyPressed = false;
+
         keys_status[GLFW_KEY_A] = glfwGetKey(window, GLFW_KEY_A);
+        if (keys_status[GLFW_KEY_A] == GLFW_PRESS) {
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_S] = glfwGetKey(window, GLFW_KEY_S);
+        if (keys_status[GLFW_KEY_S] == GLFW_PRESS) {
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_D] = glfwGetKey(window, GLFW_KEY_D);
+        if (keys_status[GLFW_KEY_D] == GLFW_PRESS) {
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_F] = glfwGetKey(window, GLFW_KEY_F);
+        if (keys_status[GLFW_KEY_F] == GLFW_PRESS) {
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_W] = glfwGetKey(window, GLFW_KEY_W);
+        if (keys_status[GLFW_KEY_W] == GLFW_PRESS) {
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_UP] = glfwGetKey(window, GLFW_KEY_UP);
+        if (keys_status[GLFW_KEY_UP] == GLFW_PRESS) {
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_DOWN] = glfwGetKey(window, GLFW_KEY_DOWN);
+        if (keys_status[GLFW_KEY_DOWN] == GLFW_PRESS) {
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_RIGHT] = glfwGetKey(window, GLFW_KEY_RIGHT);
+        if (keys_status[GLFW_KEY_RIGHT] == GLFW_PRESS) {
+            drone.onLookRight(deltaT, &cameraPosition);
+            isAtLeastOneKeyPressed = true;
+        }
         keys_status[GLFW_KEY_LEFT] = glfwGetKey(window, GLFW_KEY_LEFT);
+        if (keys_status[GLFW_KEY_LEFT] == GLFW_PRESS) {
+            drone.onLookLeft(deltaT, &cameraPosition);
+            isAtLeastOneKeyPressed = true;
+        }
 
         drone.move(deltaT, glm::vec3(0, 0, -1), &cameraPosition, keys_status[GLFW_KEY_W]);
         drone.move(deltaT, glm::vec3(0, 0, 1), &cameraPosition, keys_status[GLFW_KEY_S]);
@@ -266,12 +305,7 @@ protected:
         drone.move(deltaT, glm::vec3(0, 1, 0), &cameraPosition, keys_status[GLFW_KEY_UP]);
         drone.move(deltaT, glm::vec3(0, -1, 0), &cameraPosition, keys_status[GLFW_KEY_DOWN]);
 
-        if (keys_status[GLFW_KEY_RIGHT] == GLFW_PRESS) {
-            drone.onLookRight(deltaT, &cameraPosition);
-        }
-        if (keys_status[GLFW_KEY_LEFT] == GLFW_PRESS) {
-            drone.onLookLeft(deltaT, &cameraPosition);
-        }
+        isAtLeastOneKeyPressed ? drone.activateFans() : drone.deactivateFans();
 
         glm::mat4 cameraMatrix = glm::lookAt(cameraPosition, drone.position, glm::vec3(0, 1, 0));
 
@@ -297,15 +331,12 @@ protected:
 
 
         // For the Terrain
-        ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 5.0f)) *
-                    glm::translate(glm::mat4(1.0f), glm::vec3(-20.0f, -4.0f, 10.0f)) *
-                    glm::rotate(glm::mat4(1.0f),
-                                glm::radians(-90.0f),
-                                glm::vec3(1.0f, 0.0f, 0.0f));;
-        vkMapMemory(device, terrainBaseModel.descriptorSet.uniformBuffersMemory[0][currentImage], 0,
-                    sizeof(ubo), 0, &data);
-        memcpy(data, &ubo, sizeof(ubo));
-        vkUnmapMemory(device, terrainBaseModel.descriptorSet.uniformBuffersMemory[0][currentImage]);
+//        ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 5.0f)) *
+//                    glm::translate(glm::mat4(1.0f), glm::vec3(-20.0f, -4.0f, 10.0f)) *
+//                    glm::rotate(glm::mat4(1.0f),
+//                                glm::radians(-90.0f),
+//                                glm::vec3(1.0f, 0.0f, 0.0f));
+        terrain.draw(currentImage, &ubo, &data, &device);
 
         drone.draw(currentImage, &ubo, &data, &device);
 

@@ -17,12 +17,15 @@ public:
     Model model;
     Texture texture;
     DescriptorSet descriptorSet;
+
     BaseProject *baseProjectPtr;
     DescriptorSetLayout *descriptorSetLayoutPtr;
+    Pipeline *pipeline;
 
-    BaseModel(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr) {
+    BaseModel(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr, Pipeline *pipeline) {
         this->baseProjectPtr = baseProjectPtr;
         this->descriptorSetLayoutPtr = descriptorSetLayoutPtr;
+        this->pipeline = pipeline;
     }
 
     void init(std::string modelPath, std::string texturePath) {
@@ -41,14 +44,35 @@ public:
         });
     }
 
-    void cleanUp() {
-        model.cleanup();
-        texture.cleanup();
-        descriptorSet.cleanup();
+    void populateCommandBuffer(VkCommandBuffer *commandBuffer, int currentImage) {
+        VkBuffer vertexBuffers[] = {model.vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(*commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(*commandBuffer, model.indexBuffer, 0,
+                             VK_INDEX_TYPE_UINT32);
+        vkCmdBindDescriptorSets(*commandBuffer,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                (*pipeline).pipelineLayout, 1, 1, &descriptorSet.descriptorSets[currentImage],
+                                0, nullptr);
+        vkCmdDrawIndexed(*commandBuffer,
+                         static_cast<uint32_t>(model.indices.size()), 1, 0, 0, 0);
     }
 
-    void cleanUpNoTexture() {
+    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr,
+              glm::mat4 worldMatrix) {
+        (*uboPtr).model = worldMatrix;
+        vkMapMemory(*devicePtr, descriptorSet.uniformBuffersMemory[0][currentImage], 0,
+                    sizeof(*uboPtr), 0, &dataPtr);
+        memcpy(dataPtr, uboPtr, sizeof(*uboPtr));
+        vkUnmapMemory(*devicePtr, descriptorSet.uniformBuffersMemory[0][currentImage]);
+    }
+
+
+    void cleanUp() {
         model.cleanup();
+        if (descriptorSet.uniformBuffers.size() > 1) {
+            texture.cleanup();
+        }
         descriptorSet.cleanup();
     }
 
@@ -56,10 +80,12 @@ public:
 
 class Drone {
 private:
-    const float MAX_MOVE_SPEED = 10.f;
+    const float MAX_MOVE_SPEED = 20.f;
 
     const float FAN_MAX_SPEED = 50.f;
-    const float FAN_MIN_SPEED = 20.f;
+    const float FAN_MIN_SPEED = 0.f;
+    const float FAN_DECELERATION_RATE = 0.2f;
+    const float FAN_ACCELERATION_RATE = 0.5f;
 
     const float INCLINATION_SPEED = glm::radians(45.f);
     const float MAX_INCLINATION = glm::radians(10.f);
@@ -132,20 +158,6 @@ private:
         }
     }
 
-    void activeFans() {
-        fanSpeed += fanSpeed < FAN_MAX_SPEED ? 0.5f : 0.f;
-        if (fanSpeed > FAN_MAX_SPEED) {
-            fanSpeed = FAN_MAX_SPEED;
-        }
-    }
-
-    void deactivateFans() {
-        fanSpeed -= fanSpeed > FAN_MIN_SPEED ? 0.2f : 0.f;
-        if (fanSpeed < FAN_MIN_SPEED) {
-            fanSpeed = FAN_MIN_SPEED;
-        }
-    }
-
 
 public:
     BaseModel *droneBaseModel;
@@ -153,7 +165,7 @@ public:
 
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 direction = glm::vec3(0.f, 0.f, 0.f);
-    float scale_factor = 0.3f;
+    float scale_factor = 0.015f;
 
     Drone(BaseModel *droneBaseModelPtr, BaseModel fanBaseModelList[4]) {
         this->droneBaseModel = droneBaseModelPtr;
@@ -181,29 +193,30 @@ public:
 
         //Drawing fans
         glm::mat4 fansActiveRotation = fanSpeed > 0.f ? glm::rotate(glm::mat4(1.0f),
-                                                                    time * fanSpeed * glm::radians(90.0f),
+                                                                    time * fanSpeed * glm::radians(-90.0f),
                                                                     glm::vec3(0.0f, 1.0f, 0.0f)) : glm::mat4(1.f);
         glm::mat4 inclinationRotation = glm::mat4(glm::quat(glm::vec3(0, direction.y, 0)) *
                                                   glm::quat(glm::vec3(direction.x, 0, 0)) *
                                                   glm::quat(glm::vec3(0, 0, direction.z)));
 
-        glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor * 0.68f));
+        glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
 
         for (int i = 0; i < 4; i++) {
             glm::mat4 fanTranslationWithDrone = glm::translate(glm::mat4(1.f), position);
             glm::mat4 fanTranslationWRTDroneCenter;
             switch (i) {
                 case 0:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.33f, 0.1f, -0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.54f, 0.26f, -0.4f));
                     break;
                 case 1:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.33f, 0.1f, 0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.54f, 0.26f, -0.4f));
                     break;
                 case 2:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.33f, 0.1f, 0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.54f, 0.11f, 0.4f));
                     break;
                 case 3:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.33f, 0.1f, -0.33f));
+                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f),
+                                                                  glm::vec3(0.54f, 0.11f, 0.4f));
                     break;
                 default:
                     fanTranslationWRTDroneCenter = glm::mat4(1.f);
@@ -224,8 +237,6 @@ public:
         float speed = getSpeedValue(moveDirection);
 
         if (keyStatus == GLFW_PRESS) {
-            activeFans();
-
             // drone inclination
             if (moveDirection.z != 0) {
                 direction.x += abs(direction.x) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED * moveDirection.z : 0.f;
@@ -262,7 +273,6 @@ public:
             if (speed == 0.f) {
                 return;
             }
-            deactivateFans();
             speed -= speed > 0.f ? 0.05f : 0.f;
             if (speed < 0.f) {
                 speed = 0.f;
@@ -296,5 +306,49 @@ public:
         (*cameraPosition) = translation * rotation * glm::inverse(translation) * glm::vec4((*cameraPosition), 1.0f);
     }
 
+    void activateFans() {
+        if (fanSpeed >= FAN_MAX_SPEED) {
+            return;
+        }
+        fanSpeed = fanSpeed + FAN_ACCELERATION_RATE;
+    }
 
+    void deactivateFans() {
+        if (fanSpeed <= FAN_MIN_SPEED) {
+            return;
+        }
+        fanSpeed = fanSpeed - FAN_DECELERATION_RATE;
+    }
+
+
+};
+
+class Terrain {
+public:
+    BaseModel *terrainBaseModel;
+
+    glm::vec3 position = glm::vec3(-20.0f, -10.0f, 30.0f);
+    glm::vec3 direction = glm::vec3(90.f, 0.f, 0.f);
+    float scale_factor = 5.f;
+
+    Terrain(BaseModel *terrainBaseModel) {
+        this->terrainBaseModel = terrainBaseModel;
+    }
+
+    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
+
+        glm::mat4 translation = glm::translate(glm::mat4(1), position);
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f),
+                                         glm::radians(-90.0f),
+                                         glm::vec3(1.0f, 0.0f, 0.0f));
+        glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
+
+        glm::mat4 worldMatrix = translation * rotation * scaling;
+
+        (*uboPtr).model = worldMatrix;
+        vkMapMemory(*devicePtr, (*terrainBaseModel).descriptorSet.uniformBuffersMemory[0][currentImage], 0,
+                    sizeof(*uboPtr), 0, &dataPtr);
+        memcpy(dataPtr, uboPtr, sizeof(*uboPtr));
+        vkUnmapMemory(*devicePtr, (*terrainBaseModel).descriptorSet.uniformBuffersMemory[0][currentImage]);
+    }
 };
