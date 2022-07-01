@@ -32,7 +32,6 @@ void main() {
 	const float specPower = 150.0f;
 	const vec3  L = vec3(-0.4830f, 0.8365f, -0.2588f);
 	const float roughness = 1.5f;
-	
 	vec3 N = normalize(fragNorm);
 	vec3 R = -reflect(L, N);
 	vec3 V = normalize(fragViewDir);
@@ -42,7 +41,7 @@ void main() {
 	
 	outColor = vec4(clamp(ambient + diffuse, vec3(0.0f), vec3(1.0f)), 1.0f);
 	  
-	float fogAmount = smoothstep(0.0f, 70.0f, v_fogDepth);
+	float fogAmount = smoothstep(0.0f, 50.0f, v_fogDepth);
 
 	outColor = mix(outColor, vec4(0.8, 0.9, 1, 1), fogAmount);
 }
