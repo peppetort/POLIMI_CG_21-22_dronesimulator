@@ -44,14 +44,7 @@ protected:
     Terrain terrain = Terrain(&terrainBaseModel);
 
     Pipeline PipelineDrone;
-    // Drone
-    BaseModel droneBaseModel = BaseModel(this, &DSLobj, &PipelineDrone);
-    //Fans
-    BaseModel fansArray[4] = {BaseModel(this, &DSLobj, &PipelineDrone), BaseModel(this, &DSLobj, &PipelineDrone),
-                              BaseModel(this, &DSLobj, &PipelineDrone),
-                              BaseModel(this, &DSLobj, &PipelineDrone)};
-
-    Drone drone = Drone(&droneBaseModel, fansArray);
+    Drone drone = Drone(this, &DSLobj, &PipelineDrone);
 
     /*---- SKYBOX ----*/
 
@@ -95,19 +88,25 @@ protected:
         // Pipelines [Shader couples]
         // The last array, is a vector of pointer to the layouts of the sets that will
         // be used in this pipeline. The first element will be set 0, and so on..
-        PipelineTerrain.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv", {&DSLglobal, &DSLobj},false);
+        PipelineTerrain.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv",
+                             {&DSLglobal, &DSLobj}, false);
 
         // Terrain
         terrainBaseModel.init("models/Terrain.obj", "../textures/cliff1Color.png");
 
-        PipelineDrone.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", { &DSLglobal, &DSLobj }, false);
+        PipelineDrone.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj},
+                           false);
 
-        // Drone
-        droneBaseModel.init("models/test.obj", "../textures/drone.png");
-        // Fans
-        for (auto &i: fansArray) {
+        drone.droneBaseModel.init("models/test.obj", "../textures/drone.png");
+        for (auto &i: drone.fanBaseModelList) {
             i.init("models/test2.obj");
         }
+//        // Drone
+//        droneBaseModel.init("models/test.obj", "../textures/drone.png");
+//        // Fans
+//        for (auto &i: fansArray) {
+//            i.init("models/test2.obj");
+//        }
 
         /*---- SKYBOX ----*/
         SkyBoxDescriptorSetLayout.init(this, {
@@ -116,7 +115,7 @@ protected:
         });
 
         SkyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
-                            {&SkyBoxDescriptorSetLayout},true);
+                            {&SkyBoxDescriptorSetLayout}, true);
         skybox.init("models/SkyBox.obj", "textures/fog.png", true);
 
     }
@@ -125,9 +124,13 @@ protected:
     void localCleanup() {
         terrainBaseModel.cleanUp();
 
-        droneBaseModel.cleanUp();
-
-        for (auto &i: fansArray) {
+//        droneBaseModel.cleanUp();
+//
+//        for (auto &i: fansArray) {
+//            i.cleanUp();
+//        }
+        drone.droneBaseModel.cleanUp();
+        for (auto &i: drone.fanBaseModelList) {
             i.cleanUp();
         }
 
@@ -150,10 +153,10 @@ protected:
 
         // Bind PipelineTerrain
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            PipelineTerrain.graphicsPipeline);
+                          PipelineTerrain.graphicsPipeline);
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-            PipelineTerrain.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
+                                PipelineTerrain.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
                                 0, nullptr);
 
         // Terrain
@@ -164,7 +167,8 @@ protected:
                              VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-            PipelineTerrain.pipelineLayout, 1, 1, &terrainBaseModel.descriptorSet.descriptorSets[currentImage],
+                                PipelineTerrain.pipelineLayout, 1, 1,
+                                &terrainBaseModel.descriptorSet.descriptorSets[currentImage],
                                 0, nullptr);
         vkCmdDrawIndexed(commandBuffer,
                          static_cast<uint32_t>(terrainBaseModel.model.indices.size()), 1, 0, 0, 0);
@@ -172,26 +176,27 @@ protected:
         // Bind PipelineDrone
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            PipelineDrone.graphicsPipeline);
+                          PipelineDrone.graphicsPipeline);
         vkCmdBindDescriptorSets(commandBuffer,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            PipelineDrone.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
-            0, nullptr);
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                PipelineDrone.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
+                                0, nullptr);
         // Drone
-        VkBuffer vertexBuffers4[] = {droneBaseModel.model.vertexBuffer};
+        VkBuffer vertexBuffers4[] = {drone.droneBaseModel.model.vertexBuffer};
         VkDeviceSize offsets4[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers4, offsets4);
-        vkCmdBindIndexBuffer(commandBuffer, droneBaseModel.model.indexBuffer, 0,
+        vkCmdBindIndexBuffer(commandBuffer, drone.droneBaseModel.model.indexBuffer, 0,
                              VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-            PipelineDrone.pipelineLayout, 1, 1, &droneBaseModel.descriptorSet.descriptorSets[currentImage],
+                                PipelineDrone.pipelineLayout, 1, 1,
+                                &drone.droneBaseModel.descriptorSet.descriptorSets[currentImage],
                                 0, nullptr);
         vkCmdDrawIndexed(commandBuffer,
-                         static_cast<uint32_t>(droneBaseModel.model.indices.size()), 1, 0, 0, 0);
+                         static_cast<uint32_t>(drone.droneBaseModel.model.indices.size()), 1, 0, 0, 0);
 
 //        // Fans
-        for (auto &fanBaseModel: fansArray) {
+        for (auto &fanBaseModel: drone.fanBaseModelList) {
             VkBuffer vertexBuffers5[] = {fanBaseModel.model.vertexBuffer};
             VkDeviceSize offsets5[] = {0};
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers5, offsets5);
@@ -199,12 +204,13 @@ protected:
                                  VK_INDEX_TYPE_UINT32);
             vkCmdBindDescriptorSets(commandBuffer,
                                     VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    PipelineDrone.pipelineLayout, 1, 1, &fanBaseModel.descriptorSet.descriptorSets[currentImage],
+                                    PipelineDrone.pipelineLayout, 1, 1,
+                                    &fanBaseModel.descriptorSet.descriptorSets[currentImage],
                                     0, nullptr);
             vkCmdDrawIndexed(commandBuffer,
                              static_cast<uint32_t>(fanBaseModel.model.indices.size()), 1, 0, 0, 0);
         }
-        
+
 
 
         //Pipeline for skybox
@@ -241,50 +247,68 @@ protected:
         bool isAtLeastOneKeyPressed = false;
 
         keys_status[GLFW_KEY_A] = glfwGetKey(window, GLFW_KEY_A);
-        if (keys_status[GLFW_KEY_A] == GLFW_PRESS) {
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_S] = glfwGetKey(window, GLFW_KEY_S);
-        if (keys_status[GLFW_KEY_S] == GLFW_PRESS) {
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_D] = glfwGetKey(window, GLFW_KEY_D);
-        if (keys_status[GLFW_KEY_D] == GLFW_PRESS) {
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_F] = glfwGetKey(window, GLFW_KEY_F);
-        if (keys_status[GLFW_KEY_F] == GLFW_PRESS) {
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_W] = glfwGetKey(window, GLFW_KEY_W);
-        if (keys_status[GLFW_KEY_W] == GLFW_PRESS) {
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_UP] = glfwGetKey(window, GLFW_KEY_UP);
-        if (keys_status[GLFW_KEY_UP] == GLFW_PRESS) {
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_DOWN] = glfwGetKey(window, GLFW_KEY_DOWN);
-        if (keys_status[GLFW_KEY_DOWN] == GLFW_PRESS) {
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_RIGHT] = glfwGetKey(window, GLFW_KEY_RIGHT);
-        if (keys_status[GLFW_KEY_RIGHT] == GLFW_PRESS) {
-            drone.onLookRight(deltaT, &cameraPosition);
-            isAtLeastOneKeyPressed = true;
-        }
         keys_status[GLFW_KEY_LEFT] = glfwGetKey(window, GLFW_KEY_LEFT);
-        if (keys_status[GLFW_KEY_LEFT] == GLFW_PRESS) {
-            drone.onLookLeft(deltaT, &cameraPosition);
+
+        drone.setCameraPosition(&cameraPosition);
+
+        if (keys_status[GLFW_KEY_A] == GLFW_PRESS) {
+            drone.move(DroneDirections::L, deltaT);
+            isAtLeastOneKeyPressed = true;
+        } else if (keys_status[GLFW_KEY_A] == GLFW_RELEASE) {
+            drone.stop(DroneDirections::L, deltaT);
+        }
+
+        if (keys_status[GLFW_KEY_S] == GLFW_PRESS) {
+            drone.move(DroneDirections::B, deltaT);
+            isAtLeastOneKeyPressed = true;
+        } else if (keys_status[GLFW_KEY_S] == GLFW_RELEASE) {
+            drone.stop(DroneDirections::B, deltaT);
+        }
+
+        if (keys_status[GLFW_KEY_D] == GLFW_PRESS) {
+            drone.move(DroneDirections::R, deltaT);
+            isAtLeastOneKeyPressed = true;
+        } else if (keys_status[GLFW_KEY_D] == GLFW_RELEASE) {
+            drone.stop(DroneDirections::R, deltaT);
+        }
+
+        if (keys_status[GLFW_KEY_W] == GLFW_PRESS) {
+            drone.move(DroneDirections::F, deltaT);
+            isAtLeastOneKeyPressed = true;
+        } else if (keys_status[GLFW_KEY_W] == GLFW_RELEASE) {
+            drone.stop(DroneDirections::F, deltaT);
+        }
+
+        if (keys_status[GLFW_KEY_UP] == GLFW_PRESS) {
+            drone.move(DroneDirections::U, deltaT);
+            isAtLeastOneKeyPressed = true;
+        } else if (keys_status[GLFW_KEY_UP] == GLFW_RELEASE) {
+            drone.stop(DroneDirections::U, deltaT);
+        }
+
+        if (keys_status[GLFW_KEY_DOWN] == GLFW_PRESS) {
+            drone.move(DroneDirections::D, deltaT);
+            isAtLeastOneKeyPressed = true;
+        } else if (keys_status[GLFW_KEY_DOWN] == GLFW_RELEASE) {
+            drone.stop(DroneDirections::D, deltaT);
+        }
+
+        if (keys_status[GLFW_KEY_RIGHT] == GLFW_PRESS) {
+            drone.moveView(deltaT, -1);
             isAtLeastOneKeyPressed = true;
         }
 
-        drone.move(deltaT, glm::vec3(0, 0, -1), &cameraPosition, keys_status[GLFW_KEY_W]);
-        drone.move(deltaT, glm::vec3(0, 0, 1), &cameraPosition, keys_status[GLFW_KEY_S]);
-        drone.move(deltaT, glm::vec3(-1, 0, 0), &cameraPosition, keys_status[GLFW_KEY_A]);
-        drone.move(deltaT, glm::vec3(1, 0, 0), &cameraPosition, keys_status[GLFW_KEY_D]);
-        drone.move(deltaT, glm::vec3(0, 1, 0), &cameraPosition, keys_status[GLFW_KEY_UP]);
-        drone.move(deltaT, glm::vec3(0, -1, 0), &cameraPosition, keys_status[GLFW_KEY_DOWN]);
+        if (keys_status[GLFW_KEY_LEFT] == GLFW_PRESS) {
+            drone.moveView(deltaT, 1);
+            isAtLeastOneKeyPressed = true;
+        }
 
         isAtLeastOneKeyPressed ? drone.activateFans() : drone.deactivateFans();
 
@@ -320,7 +344,7 @@ protected:
         terrain.draw(currentImage, &ubo, &data, &device);
 
         // Draw drone (with fans)
-        drone.draw(currentImage, &ubo, &data, &device);
+        drone.draw(currentImage, &ubo, &data, &device, deltaT);
 
         /*---- SKYBOX ----*/
 
@@ -338,8 +362,8 @@ protected:
             glm::scale(glm::mat4(1.0f), glm::vec3(1.2f));*/
         subo.view = cameraMatrix;
         subo.proj = glm::perspective(glm::radians(60.0f),
-            swapChainExtent.width / (float)swapChainExtent.height,
-            0.1f, farPlane);
+                                     swapChainExtent.width / (float) swapChainExtent.height,
+                                     0.1f, farPlane);
         subo.proj[1][1] *= -1;
         // For the SkyBox
         vkMapMemory(device, skybox.descriptorSet.uniformBuffersMemory[0][currentImage], 0,

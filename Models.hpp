@@ -4,6 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <map>
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -14,13 +15,11 @@ struct SkyBoxUniformBufferObject {
     alignas(16) glm::mat4 model;
 };
 
-static auto startTime = std::chrono::high_resolution_clock::now();
-
 
 class BaseModel {
 public:
     Model model;
-    Texture texture;
+    Texture texture{};
     DescriptorSet descriptorSet;
 
     BaseProject *baseProjectPtr;
@@ -39,13 +38,13 @@ public:
         if (isSkyBox)
             descriptorSet.init(baseProjectPtr, descriptorSetLayoutPtr, {
                     {0, UNIFORM, sizeof(SkyBoxUniformBufferObject), nullptr},
-                    {1, TEXTURE, 0,                           &texture}
-                });
+                    {1, TEXTURE, 0,                                 &texture}
+            });
         else
             descriptorSet.init(baseProjectPtr, descriptorSetLayoutPtr, {
                     {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
                     {1, TEXTURE, 0,                           &texture}
-                });
+            });
     }
 
     void init(std::string modelPath) {
@@ -89,249 +88,216 @@ public:
 
 };
 
-class Drone {
-private:
-    const float MAX_MOVE_SPEED = 20.f;
+enum DroneDirections {
+    F, B, R, L, U, D
+};
 
-    const float FAN_MAX_SPEED = 50.f;
+class Drone {
+
+private:
+
+    // configurable parameters
+    const glm::vec3 INITIAL_POSITION = glm::vec3(0.0f, 0.0f, 0.0f);
+    const glm::vec3 INITIAL_DIRECTION = glm::vec3(0.0f, 0.0f, 0.0f);
+
+    const float SCALE_FACTOR = 0.015f;
+
+    const float FAN_MAX_SPEED = 10.f;
     const float FAN_MIN_SPEED = 0.f;
-    const float FAN_DECELERATION_RATE = 0.2f;
-    const float FAN_ACCELERATION_RATE = 0.5f;
+    const float FAN_DECELERATION_RATE = 0.1f;
+    const float FAN_ACCELERATION_RATE = 0.3f;
+
+    const float MIN_FAN_SPEED_TO_MOVE = 6.f;
+
+    const float DRONE_MAX_SPEED = 15.f;
+
+    const float DRONE_ACCELERATION_RATE = 0.5f;
+    const float DRONE_DECELERATION_RATE = 0.2f;
 
     const float INCLINATION_SPEED = glm::radians(45.f);
-    const float MAX_INCLINATION = glm::radians(10.f);
+    const float MAX_INCLINATION = glm::radians(15.f);
 
-    const float ROTATION_SPEED = glm::radians(60.f);
+    const float ROTATION_SPEED = 2.f;
 
-
+    // internal variables
     float fanSpeed = FAN_MIN_SPEED;
-    float moveSpeed[3][2] = {{0.f, 0.f},
-                             {0.f, 0.f},
-                             {0.f, 0.f}};
 
-    float getSpeedValue(glm::vec3 moveDirection) {
-        if (moveDirection.z != 0) {
-            if (moveDirection.z < 0) {
-                return moveSpeed[0][0];
-            } else {
-                return moveSpeed[0][1];
-            }
-        }
+    std::map<DroneDirections, glm::vec3> directionToVectorMap = {
+            {DroneDirections::F, glm::vec3(0, 0, -1)},
+            {DroneDirections::B, glm::vec3(0, 0, 1)},
+            {DroneDirections::R, glm::vec3(1, 0, 0)},
+            {DroneDirections::L, glm::vec3(-1, 0, 0)},
+            {DroneDirections::U, glm::vec3(0, 1, 0)},
+            {DroneDirections::D, glm::vec3(0, -1, 0)},
+    };
 
-        if (moveDirection.x != 0) {
-            if (moveDirection.x < 0) {
-                return moveSpeed[1][0];
-            } else {
-                return moveSpeed[1][1];
-            }
-        }
+    std::map<DroneDirections, float> droneSpeedPerDirectionMap = {
+            {DroneDirections::F, 0.f},
+            {DroneDirections::B, 0.f},
+            {DroneDirections::R, 0.f},
+            {DroneDirections::L, 0.f},
+            {DroneDirections::U, 0.f},
+            {DroneDirections::D, 0.f},
+    };
 
-        if (moveDirection.y != 0) {
-            if (moveDirection.y < 0) {
-                return moveSpeed[2][0];
-            } else {
-                return moveSpeed[2][1];
-            }
-        }
+    std::map<DroneDirections, glm::vec3> directionToInclinationVectorMap = {
+            {DroneDirections::F, glm::vec3(-1, 0, 0)},
+            {DroneDirections::B, glm::vec3(1, 0, 0)},
+            {DroneDirections::R, glm::vec3(0, 0, -1)},
+            {DroneDirections::L, glm::vec3(0, 0, 1)},
+    };
 
-        return 0.f;
+    void updateDroneAndCameraPosition(float deltaT, glm::vec3 moveDirection, float speed) {
+        // move drone
+        position += speed * glm::vec3(glm::mat4(lookDirection) * glm::vec4(moveDirection, 1)) * deltaT;
+        // move camera
+        *cameraPosition += speed * glm::vec3(glm::mat4(lookDirection) * glm::vec4(moveDirection, 1)) * deltaT;
     }
-
-    void updateSpeedValue(glm::vec3 moveDirection, float speed) {
-        if (moveDirection.z != 0) {
-            if (moveDirection.z < 0) {
-                moveSpeed[0][1] = 0.f;
-                moveSpeed[0][0] = speed;
-            } else {
-                moveSpeed[0][0] = 0.f;
-                moveSpeed[0][1] = speed;
-            }
-        }
-
-        if (moveDirection.x != 0) {
-            if (moveDirection.x < 0) {
-                moveSpeed[1][1] = 0.f;
-                moveSpeed[1][0] = speed;
-            } else {
-                moveSpeed[1][0] = 0.f;
-                moveSpeed[1][1] = speed;
-            }
-        }
-
-        if (moveDirection.y != 0) {
-            if (moveDirection.y < 0) {
-                moveSpeed[2][1] = 0.f;
-                moveSpeed[2][0] = speed;
-            } else {
-                moveSpeed[2][0] = 0.f;
-                moveSpeed[2][1] = speed;
-            }
-        }
-    }
-
 
 public:
-    BaseModel *droneBaseModel;
-    BaseModel *fanBaseModelList;
 
-    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 direction = glm::vec3(0.f, 0.f, 0.f);
-    float scale_factor = 0.015f;
+    BaseModel droneBaseModel;
+    BaseModel fanBaseModelList[4];
 
-    Drone(BaseModel *droneBaseModelPtr, BaseModel fanBaseModelList[4]) {
-        this->droneBaseModel = droneBaseModelPtr;
-        this->fanBaseModelList = fanBaseModelList;
-    }
+    glm::vec3 position = INITIAL_POSITION;
+    glm::quat direction = glm::quat(INITIAL_DIRECTION);
+    glm::quat lookDirection = glm::quat(glm::vec3(0.f));
 
+    glm::vec3 *cameraPosition = nullptr;
 
-    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
+    Drone(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr,
+          Pipeline *pipeline) : droneBaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
+                                fanBaseModelList{BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
+                                                 BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
+                                                 BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
+                                                 BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline)} {};
+
+    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr, float deltaT) {
+
         glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
-        glm::mat4 droneRotation = glm::mat4(glm::quat(glm::vec3(0, direction.y, 0)) *
-                                            glm::quat(glm::vec3(direction.x, 0, 0)) *
-                                            glm::quat(glm::vec3(0, 0, direction.z)));
-        glm::mat4 droneScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
-        glm::mat4 worldMatrix = droneTranslation * droneRotation * droneScaling;
-        (*uboPtr).model = worldMatrix;
-
-        vkMapMemory(*devicePtr, (*droneBaseModel).descriptorSet.uniformBuffersMemory[0][currentImage], 0,
-                    sizeof(*uboPtr), 0, &dataPtr);
-        memcpy(dataPtr, uboPtr, sizeof(*uboPtr));
-        vkUnmapMemory(*devicePtr, (*droneBaseModel).descriptorSet.uniformBuffersMemory[0][currentImage]);
-
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>
-                (currentTime - startTime).count();
+        glm::mat4 droneRotation = glm::mat4(lookDirection) * glm::mat4(direction);
+        glm::mat4 droneScaling = glm::scale(glm::mat4(1.0f), glm::vec3(SCALE_FACTOR));
+        glm::mat4 droneWorldMatrix = droneTranslation * droneRotation * droneScaling;
+        droneBaseModel.draw(currentImage, uboPtr, dataPtr, devicePtr, droneWorldMatrix);
 
         //Drawing fans
         glm::mat4 fansActiveRotation = fanSpeed > 0.f ? glm::rotate(glm::mat4(1.0f),
-                                                                    time * fanSpeed * glm::radians(-90.0f),
+                                                                    deltaT * fanSpeed * glm::radians(-90.0f),
                                                                     glm::vec3(0.0f, 1.0f, 0.0f)) : glm::mat4(1.f);
-        glm::mat4 inclinationRotation = glm::mat4(glm::quat(glm::vec3(0, direction.y, 0)) *
-                                                  glm::quat(glm::vec3(direction.x, 0, 0)) *
-                                                  glm::quat(glm::vec3(0, 0, direction.z)));
 
-        glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
+        glm::mat4 fanScaling = glm::scale(glm::mat4(1.0f), glm::vec3(SCALE_FACTOR));
+        glm::mat4 fanTranslationWithDrone = glm::translate(glm::mat4(1.f), position);
+        glm::mat4 movesAndInclination = fanTranslationWithDrone * droneRotation;
+        glm::mat4 scalingAndRotation = fanScaling;
 
-        for (int i = 0; i < 4; i++) {
-            glm::mat4 fanTranslationWithDrone = glm::translate(glm::mat4(1.f), position);
-            glm::mat4 fanTranslationWRTDroneCenter;
-            switch (i) {
-                case 0:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(0.54f, 0.26f, -0.4f));
-                    break;
-                case 1:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.54f, 0.26f, -0.4f));
-                    break;
-                case 2:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f), glm::vec3(-0.54f, 0.11f, 0.4f));
-                    break;
-                case 3:
-                    fanTranslationWRTDroneCenter = glm::translate(glm::mat4(1.0f),
-                                                                  glm::vec3(0.54f, 0.11f, 0.4f));
-                    break;
-                default:
-                    fanTranslationWRTDroneCenter = glm::mat4(1.f);
-            }
+        glm::mat4 positioningWRTDrone = glm::translate(glm::mat4(1.0f), glm::vec3(0.54f, 0.26f, -0.4f));
+        glm::mat4 fanWorldMatrix = movesAndInclination * positioningWRTDrone * scalingAndRotation;
+        fanBaseModelList[0].draw(currentImage, uboPtr, dataPtr, devicePtr, fanWorldMatrix);
 
-            (*uboPtr).model =
-                    fanTranslationWithDrone * inclinationRotation * fanTranslationWRTDroneCenter * fanScaling *
-                    fansActiveRotation;
+        positioningWRTDrone = glm::translate(glm::mat4(1.0f), glm::vec3(-0.54f, 0.26f, -0.4f));
+        fanWorldMatrix = movesAndInclination * positioningWRTDrone * scalingAndRotation;
+        fanBaseModelList[1].draw(currentImage, uboPtr, dataPtr, devicePtr, fanWorldMatrix);
 
-            vkMapMemory(*devicePtr, fanBaseModelList[i].descriptorSet.uniformBuffersMemory[0][currentImage], 0,
-                        sizeof(*uboPtr), 0, &dataPtr);
-            memcpy(dataPtr, uboPtr, sizeof(*uboPtr));
-            vkUnmapMemory(*devicePtr, fanBaseModelList[i].descriptorSet.uniformBuffersMemory[0][currentImage]);
-        }
+        positioningWRTDrone = glm::translate(glm::mat4(1.0f), glm::vec3(-0.54f, 0.11f, 0.4f));
+        fanWorldMatrix = movesAndInclination * positioningWRTDrone * scalingAndRotation;
+        fanBaseModelList[2].draw(currentImage, uboPtr, dataPtr, devicePtr, fanWorldMatrix);
+
+        positioningWRTDrone = glm::translate(glm::mat4(1.0f), glm::vec3(0.54f, 0.11f, 0.4f));
+        fanWorldMatrix = movesAndInclination * positioningWRTDrone * scalingAndRotation;
+        fanBaseModelList[3].draw(currentImage, uboPtr, dataPtr, devicePtr, fanWorldMatrix);
     }
 
-    void move(float deltaT, glm::vec3 moveDirection, glm::vec3 *cameraPosition, int keyStatus) {
-        float speed = getSpeedValue(moveDirection);
+    void setCameraPosition(glm::vec3 *cameraPosition) {
+        this->cameraPosition = cameraPosition;
+    }
 
-        if (keyStatus == GLFW_PRESS) {
-            // drone inclination
-            if (moveDirection.z != 0) {
-                direction.x += abs(direction.x) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED * moveDirection.z : 0.f;
-            }
-            if (moveDirection.x != 0) {
-                direction.z -= abs(direction.z) < MAX_INCLINATION ? deltaT * INCLINATION_SPEED * moveDirection.x : 0.f;
-            }
+    void move(DroneDirections droneDirection, float deltaT) {
+        if (fanSpeed < MIN_FAN_SPEED_TO_MOVE * 0.5) {
+            return;
+        }
 
-            // accelerate
-            speed += speed < MAX_MOVE_SPEED ? MAX_MOVE_SPEED / 100 : 0.f;
-            updateSpeedValue(moveDirection, speed);
+        auto x = directionToInclinationVectorMap.find(droneDirection);
+
+        if (x != directionToInclinationVectorMap.end()) {
+            float inclination_rate = glm::dot(glm::eulerAngles(direction),
+                                              directionToInclinationVectorMap[droneDirection]);
+
+            if (inclination_rate < MAX_INCLINATION) {
+                direction = glm::rotate(direction, deltaT * INCLINATION_SPEED,
+                                        directionToInclinationVectorMap[droneDirection]);
+            } else if (inclination_rate > MAX_INCLINATION) {
+                direction = glm::rotate(direction, glm::radians(0.f),
+                                        directionToInclinationVectorMap[droneDirection]);
+            }
         }
 
 
-        if (keyStatus == GLFW_RELEASE) {
-
-            // drone inclination
-            if (moveDirection.z != 0) {
-                if (moveDirection.z < 0) {
-                    direction.x += direction.x < 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
-                } else {
-                    direction.x -= direction.x > 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
-                }
-            }
-            if (moveDirection.x != 0) {
-                if (moveDirection.x < 0) {
-                    direction.z -= direction.z > 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
-                } else {
-                    direction.z += direction.z < 0.f ? deltaT * INCLINATION_SPEED * 2 : 0.f;
-                }
-            }
-
-            // decelerate
-            if (speed == 0.f) {
-                return;
-            }
-            speed -= speed > 0.f ? 0.05f : 0.f;
-            if (speed < 0.f) {
-                speed = 0.f;
-            }
-            updateSpeedValue(moveDirection, speed);
+        if (fanSpeed < MIN_FAN_SPEED_TO_MOVE) {
+            return;
         }
 
-
-        // move drone
-        position += speed * glm::vec3(glm::rotate(glm::mat4(1.0f), direction.y,
-                                                  glm::vec3(0.0f, 1.0f, 0.0f)) *
-                                      glm::vec4(moveDirection, 1)) * deltaT;
-
-        // move camera
-        *cameraPosition += speed * glm::vec3(glm::rotate(glm::mat4(1.0f), direction.y,
-                                                         glm::vec3(0.0f, 1.0f, 0.0f)) *
-                                             glm::vec4(moveDirection, 1)) * deltaT;
+        float speed = droneSpeedPerDirectionMap[droneDirection];
+        //std::cout << speed << std::endl;
+        speed += speed < DRONE_MAX_SPEED ? DRONE_ACCELERATION_RATE : 0.f;
+        droneSpeedPerDirectionMap[droneDirection] = speed;
+        updateDroneAndCameraPosition(deltaT, directionToVectorMap[droneDirection], speed);
     }
 
-    void onLookRight(float deltaT, glm::vec3 *cameraPosition) {
-        direction.y -= deltaT * ROTATION_SPEED;
-        glm::mat4 translation = glm::translate(glm::mat4(1.f), position);
-        glm::mat4 rotation = glm::rotate(glm::mat4(1.f), -ROTATION_SPEED * deltaT, glm::vec3(0, 1, 0));
-        (*cameraPosition) = translation * rotation * glm::inverse(translation) * glm::vec4((*cameraPosition), 1.0f);
+    void stop(DroneDirections droneDirection, float deltaT) {
+        auto x = directionToInclinationVectorMap.find(droneDirection);
+
+        if (x != directionToInclinationVectorMap.end()) {
+            float inclination_rate = glm::dot(glm::eulerAngles(direction),
+                                              directionToInclinationVectorMap[droneDirection]);
+
+            if (inclination_rate > 0.f) {
+                direction = glm::rotate(direction, -deltaT * INCLINATION_SPEED,
+                                        directionToInclinationVectorMap[droneDirection]);
+            } else if (inclination_rate < 0.f) {
+                direction = glm::rotate(direction, glm::radians(0.f),
+                                        directionToInclinationVectorMap[droneDirection]);
+            }
+        }
+
+        float speed = droneSpeedPerDirectionMap[droneDirection];
+        if (speed <= 0) {
+            return;
+        }
+        // std::cout << speed << std::endl;
+        speed -= speed > 0.f ? DRONE_DECELERATION_RATE : 0.f;
+        if (speed < 0.f) {
+            speed = 0.f;
+        }
+        droneSpeedPerDirectionMap[droneDirection] = speed;
+        updateDroneAndCameraPosition(deltaT, directionToVectorMap[droneDirection], speed);
     }
 
-    void onLookLeft(float deltaT, glm::vec3 *cameraPosition) {
-        direction.y += deltaT * ROTATION_SPEED;
-        glm::mat4 translation = glm::translate(glm::mat4(1.f), position);
-        glm::mat4 rotation = glm::rotate(glm::mat4(1.f), ROTATION_SPEED * deltaT, glm::vec3(0, 1, 0));
-        (*cameraPosition) = translation * rotation * glm::inverse(translation) * glm::vec4((*cameraPosition), 1.0f);
-    }
 
     void activateFans() {
+        //std::cout << fanSpeed << std::endl;
         if (fanSpeed >= FAN_MAX_SPEED) {
             return;
         }
-        fanSpeed = fanSpeed + FAN_ACCELERATION_RATE;
+        fanSpeed += fanSpeed < FAN_MAX_SPEED ? FAN_ACCELERATION_RATE : 0.f;
     }
 
     void deactivateFans() {
-        if (fanSpeed <= FAN_MIN_SPEED) {
+        if (fanSpeed == 0.f) {
             return;
         }
-        fanSpeed = fanSpeed - FAN_DECELERATION_RATE;
+        //std::cout << fanSpeed << std::endl;
+        fanSpeed -= fanSpeed > FAN_MIN_SPEED ? FAN_DECELERATION_RATE : 0.f;
+        if (fanSpeed < FAN_MIN_SPEED) {
+            fanSpeed = 0.f;
+        }
     }
 
-
+    void moveView(float deltaT, float v) {
+        lookDirection = glm::rotate(lookDirection, v * deltaT * ROTATION_SPEED, glm::vec3(0, 1, 0));
+        glm::mat4 translation = glm::translate(glm::mat4(1.f), position);
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.f), v * ROTATION_SPEED * deltaT, glm::vec3(0, 1, 0));
+        (*cameraPosition) = translation * rotation * glm::inverse(translation) * glm::vec4((*cameraPosition), 1.0f);
+    }
 };
 
 class Terrain {
