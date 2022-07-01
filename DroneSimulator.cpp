@@ -40,16 +40,16 @@ protected:
     DescriptorSet DS_global;
 
     //Terrain
-    BaseModel terrainBaseModel = BaseModel(this, &DSLobj, &P1);
+    BaseModel terrainBaseModel = BaseModel(this, &DSLobj, &PipelineTerrain);
     Terrain terrain = Terrain(&terrainBaseModel);
 
     Pipeline PipelineDrone;
     // Drone
-    BaseModel droneBaseModel = BaseModel(this, &DSLobj, &P1);
+    BaseModel droneBaseModel = BaseModel(this, &DSLobj, &PipelineDrone);
     //Fans
-    BaseModel fansArray[4] = {BaseModel(this, &DSLobj, &P1), BaseModel(this, &DSLobj, &P1),
-                              BaseModel(this, &DSLobj, &P1),
-                              BaseModel(this, &DSLobj, &P1)};
+    BaseModel fansArray[4] = {BaseModel(this, &DSLobj, &PipelineDrone), BaseModel(this, &DSLobj, &PipelineDrone),
+                              BaseModel(this, &DSLobj, &PipelineDrone),
+                              BaseModel(this, &DSLobj, &PipelineDrone)};
 
     Drone drone = Drone(&droneBaseModel, fansArray);
 
@@ -57,7 +57,7 @@ protected:
 
     DescriptorSetLayout SkyBoxDescriptorSetLayout; // for skybox
     Pipeline SkyBoxPipeline;        // for skybox
-    BaseModel skybox = BaseModel(this, &SkyBoxDescriptorSetLayout);
+    BaseModel skybox = BaseModel(this, &SkyBoxDescriptorSetLayout, &SkyBoxPipeline);
 
     // Here you set the main application parameters
     void setWindowParameters() {
@@ -199,7 +199,7 @@ protected:
                                  VK_INDEX_TYPE_UINT32);
             vkCmdBindDescriptorSets(commandBuffer,
                                     VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    P1.pipelineLayout, 1, 1, &fanBaseModel.descriptorSet.descriptorSets[currentImage],
+                                    PipelineDrone.pipelineLayout, 1, 1, &fanBaseModel.descriptorSet.descriptorSets[currentImage],
                                     0, nullptr);
             vkCmdDrawIndexed(commandBuffer,
                              static_cast<uint32_t>(fanBaseModel.model.indices.size()), 1, 0, 0, 0);
