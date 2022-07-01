@@ -8,16 +8,6 @@ struct GlobalUniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
-//struct UniformBufferObject {
-//	alignas(16) glm::mat4 model;
-//};
-
-struct SkyBoxUniformBufferObject {
-    alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
-    alignas(16) glm::mat4 model;
-};
-
 
 // MAIN !
 class DroneSimulator : public BaseProject {
@@ -45,13 +35,14 @@ protected:
     DescriptorSetLayout DSLobj;
 
     // Pipelines [Shader couples]
-    Pipeline P1;
+    Pipeline PipelineTerrain;
 
     DescriptorSet DS_global;
 
     //Terrain
     BaseModel terrainBaseModel = BaseModel(this, &DSLobj);
 
+    Pipeline PipelineDrone;
     // Drone
     BaseModel droneBaseModel = BaseModel(this, &DSLobj);
     //Fans
@@ -60,14 +51,11 @@ protected:
 
     Drone drone = Drone(&droneBaseModel, fansArray);
 
-
     /*---- SKYBOX ----*/
 
     DescriptorSetLayout SkyBoxDescriptorSetLayout; // for skybox
     Pipeline SkyBoxPipeline;        // for skybox
-    Model M_SkyBox;
-    Texture T_SkyBox;
-    DescriptorSet DS_SkyBox;    // instance SkyBoxDescriptorSetLayout
+    BaseModel skybox = BaseModel(this, &SkyBoxDescriptorSetLayout);
 
     // Here you set the main application parameters
     void setWindowParameters() {
@@ -105,39 +93,31 @@ protected:
         // Pipelines [Shader couples]
         // The last array, is a vector of pointer to the layouts of the sets that will
         // be used in this pipeline. The first element will be set 0, and so on..
-        P1.init(this, "../shaders/shaderDroneVert.spv", "../shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj});
+        PipelineTerrain.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv", {&DSLglobal, &DSLobj},false);
 
         // Terrain
-        terrainBaseModel.init("../models/Terrain.obj", "../textures/PaloDuroPark.jpg");
+        terrainBaseModel.init("models/Terrain.obj", "textures/PaloDuroPark.jpg");
+
+        PipelineDrone.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", { &DSLglobal, &DSLobj }, false);
 
         // Drone
-        droneBaseModel.init("../models/droneFixed.obj", "../textures/White.png");
+        droneBaseModel.init("models/droneFixed.obj", "textures/White.png");
+        
         // Fans
         for (auto &i: fansArray) {
-            i.init("../models/fan.obj");
+            i.init("models/fan.obj", "textures/Black.png");
         }
 
         /*---- SKYBOX ----*/
-
         SkyBoxDescriptorSetLayout.init(this, {
-                // this array contains the binding:
-                // first  element : the binding number
-                // second element : the time of element (buffer or texture)
-                // third  element : the pipeline stage where it will be used
                 {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_VERTEX_BIT},
                 {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
         });
 
-        SkyBoxPipeline.init(this, "../shaders/SkyBoxVert.spv", "../shaders/SkyBoxFrag.spv",
-                            {&SkyBoxDescriptorSetLayout});
+        SkyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
+                            {&SkyBoxDescriptorSetLayout},true);
+        skybox.init("models/SkyBox.obj", "textures/fog.png", true);
 
-
-        M_SkyBox.init(this, "../models/SkyBoxCube.obj");
-        T_SkyBox.init(this, "../textures/skybox.png");
-        DS_SkyBox.init(this, &SkyBoxDescriptorSetLayout, {
-                {0, UNIFORM, sizeof(SkyBoxUniformBufferObject), nullptr},
-                {1, TEXTURE, 0,                                 &T_SkyBox}
-        });
     }
 
     // Here you destroy all the objects you created!
@@ -145,21 +125,19 @@ protected:
         terrainBaseModel.cleanUp();
 
         droneBaseModel.cleanUp();
+
         for (auto &i: fansArray) {
-            i.cleanUpNoTexture();
+            i.cleanUp();
         }
 
         DS_global.cleanup();
 
-        P1.cleanup();
+        PipelineTerrain.cleanup();
+        PipelineDrone.cleanup();
         DSLglobal.cleanup();
         DSLobj.cleanup();
 
-
-        DS_SkyBox.cleanup();
-        T_SkyBox.cleanup();
-        M_SkyBox.cleanup();
-
+        skybox.cleanUp();
         SkyBoxPipeline.cleanup();
         SkyBoxDescriptorSetLayout.cleanup();
     }
@@ -169,12 +147,12 @@ protected:
     // with their buffers and textures
     void populateCommandBuffer(VkCommandBuffer commandBuffer, int currentImage) {
 
-        // Bind P1
+        // Bind PipelineTerrain
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          P1.graphicsPipeline);
+            PipelineTerrain.graphicsPipeline);
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                P1.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
+            PipelineTerrain.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
                                 0, nullptr);
 
         // Terrain
@@ -185,12 +163,19 @@ protected:
                              VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                P1.pipelineLayout, 1, 1, &terrainBaseModel.descriptorSet.descriptorSets[currentImage],
+            PipelineTerrain.pipelineLayout, 1, 1, &terrainBaseModel.descriptorSet.descriptorSets[currentImage],
                                 0, nullptr);
         vkCmdDrawIndexed(commandBuffer,
                          static_cast<uint32_t>(terrainBaseModel.model.indices.size()), 1, 0, 0, 0);
 
+        // Bind PipelineDrone
 
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            PipelineDrone.graphicsPipeline);
+        vkCmdBindDescriptorSets(commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            PipelineDrone.pipelineLayout, 0, 1, &DS_global.descriptorSets[currentImage],
+            0, nullptr);
         // Drone
         VkBuffer vertexBuffers4[] = {droneBaseModel.model.vertexBuffer};
         VkDeviceSize offsets4[] = {0};
@@ -199,12 +184,12 @@ protected:
                              VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                P1.pipelineLayout, 1, 1, &droneBaseModel.descriptorSet.descriptorSets[currentImage],
+            PipelineDrone.pipelineLayout, 1, 1, &droneBaseModel.descriptorSet.descriptorSets[currentImage],
                                 0, nullptr);
         vkCmdDrawIndexed(commandBuffer,
                          static_cast<uint32_t>(droneBaseModel.model.indices.size()), 1, 0, 0, 0);
 
-//        // Fans
+        // Fans
         for (auto &fanBaseModel: fansArray) {
             VkBuffer vertexBuffers5[] = {fanBaseModel.model.vertexBuffer};
             VkDeviceSize offsets5[] = {0};
@@ -213,28 +198,27 @@ protected:
                                  VK_INDEX_TYPE_UINT32);
             vkCmdBindDescriptorSets(commandBuffer,
                                     VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                    P1.pipelineLayout, 1, 1, &fanBaseModel.descriptorSet.descriptorSets[currentImage],
+                PipelineDrone.pipelineLayout, 1, 1, &fanBaseModel.descriptorSet.descriptorSets[currentImage],
                                     0, nullptr);
             vkCmdDrawIndexed(commandBuffer,
                              static_cast<uint32_t>(fanBaseModel.model.indices.size()), 1, 0, 0, 0);
         }
-        
 
         //Pipeline for skybox
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           SkyBoxPipeline.graphicsPipeline);
 
-        VkBuffer vertexBuffers2[] = {M_SkyBox.vertexBuffer};
+        VkBuffer vertexBuffers2[] = {skybox.model.vertexBuffer};
         VkDeviceSize offsets2[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers2, offsets2);
-        vkCmdBindIndexBuffer(commandBuffer, M_SkyBox.indexBuffer, 0,
+        vkCmdBindIndexBuffer(commandBuffer, skybox.model.indexBuffer, 0,
                              VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                SkyBoxPipeline.pipelineLayout, 0, 1, &DS_SkyBox.descriptorSets[currentImage],
+                                SkyBoxPipeline.pipelineLayout, 0, 1, &skybox.descriptorSet.descriptorSets[currentImage],
                                 0, nullptr);
         vkCmdDrawIndexed(commandBuffer,
-                         static_cast<uint32_t>(M_SkyBox.indices.size()), 1, 0, 0, 0);
+                         static_cast<uint32_t>(skybox.model.indices.size()), 1, 0, 0, 0);
     }
 
     // Here is where you update the uniforms.
@@ -248,6 +232,8 @@ protected:
                 (currentTime - startTime).count();
         float deltaT = time - lastTime;
         lastTime = time;
+
+        const float farPlane = 50.0;
 
         keys_status[GLFW_KEY_A] = glfwGetKey(window, GLFW_KEY_A);
         keys_status[GLFW_KEY_S] = glfwGetKey(window, GLFW_KEY_S);
@@ -284,7 +270,7 @@ protected:
         gubo.view = cameraMatrix;
         gubo.proj = glm::perspective(glm::radians(60.0f),
                                      swapChainExtent.width / (float) swapChainExtent.height,
-                                     0.1f, 50.0f);
+                                     0.1f, farPlane);
         gubo.proj[1][1] *= -1;
 
         UniformBufferObject ubo{};
@@ -307,26 +293,33 @@ protected:
         memcpy(data, &ubo, sizeof(ubo));
         vkUnmapMemory(device, terrainBaseModel.descriptorSet.uniformBuffersMemory[0][currentImage]);
 
+        // Draw drone (with fans)
         drone.draw(currentImage, &ubo, &data, &device);
 
         /*---- SKYBOX ----*/
 
-/*        SkyBoxUniformBufferObject subo{};
+        SkyBoxUniformBufferObject subo{};
 
         void *dataSB;
 
-        subo.model = glm::mat4(1.0f);
-        subo.view = glm::transpose(glm::mat4(CamDir));
-        subo.proj = glm::perspective(glm::radians(45.0f),
-                                     swapChainExtent.width / (float) swapChainExtent.height,
-                                     0.1f, 50.0f) * subo.view;
-        subo.proj[1][1] *= -1;
+        /*glm::mat3 CamDir = glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.y, glm::vec3(0.0f, 1.0f, 0.0f))) *
+            glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.z, glm::vec3(1.0f, 0.0f, 0.0f))) *
+            glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.x, glm::vec3(0.0f, 0.0f, 1.0f)));
+        glm::mat4 CamMat = glm::translate(glm::transpose(glm::mat4(CamDir)), -cameraPosition);*/
 
+        //TODO  not working
+        subo.model = glm::mat4(1.0f);/*glm::translate(glm::mat4(1.0f), -drone.position) *
+            glm::scale(glm::mat4(1.0f), glm::vec3(1.2f));*/
+        subo.view = cameraMatrix;
+        subo.proj = glm::perspective(glm::radians(60.0f),
+            swapChainExtent.width / (float)swapChainExtent.height,
+            0.1f, farPlane);
+        subo.proj[1][1] *= -1;
         // For the SkyBox
-        vkMapMemory(device, DS_SkyBox.uniformBuffersMemory[0][currentImage], 0,
+        vkMapMemory(device, skybox.descriptorSet.uniformBuffersMemory[0][currentImage], 0,
                     sizeof(subo), 0, &dataSB);
         memcpy(dataSB, &subo, sizeof(subo));
-        vkUnmapMemory(device, DS_SkyBox.uniformBuffersMemory[0][currentImage]);*/
+        vkUnmapMemory(device, skybox.descriptorSet.uniformBuffersMemory[0][currentImage]);
 
     }
 

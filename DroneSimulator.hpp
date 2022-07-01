@@ -231,7 +231,7 @@ struct Pipeline {
   	VkPipelineLayout pipelineLayout;
   	
   	void init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-  			  std::vector<DescriptorSetLayout *> D);
+  			  std::vector<DescriptorSetLayout *> D, bool isSkyBox);
   	VkShaderModule createShaderModule(const std::vector<char>& code);
   	static std::vector<char> readFile(const std::string& filename);  	
 	void cleanup();
@@ -1659,7 +1659,7 @@ void Texture::cleanup() {
 
 
 void Pipeline::init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-					std::vector<DescriptorSetLayout *> D) {
+					std::vector<DescriptorSetLayout *> D, bool isSkyBox) {
 	BP = bp;
 	
 	auto vertShaderCode = readFile(VertShader);
@@ -1741,7 +1741,11 @@ void Pipeline::init(BaseProject *bp, const std::string& VertShader, const std::s
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	if (isSkyBox)
+		//rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	else
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f; // Optional
 	rasterizer.depthBiasClamp = 0.0f; // Optional
