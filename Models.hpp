@@ -8,6 +8,11 @@
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
 };
+struct SkyBoxUniformBufferObject {
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+    alignas(16) glm::mat4 model;
+};
 
 static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -28,13 +33,19 @@ public:
         this->pipeline = pipeline;
     }
 
-    void init(std::string modelPath, std::string texturePath) {
+    void init(std::string modelPath, std::string texturePath, bool isSkyBox = false) {
         model.init(baseProjectPtr, std::move(modelPath));
         texture.init(baseProjectPtr, std::move(texturePath));
-        descriptorSet.init(baseProjectPtr, descriptorSetLayoutPtr, {
-                {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
-                {1, TEXTURE, 0,                           &texture}
-        });
+        if (isSkyBox)
+            descriptorSet.init(baseProjectPtr, descriptorSetLayoutPtr, {
+                    {0, UNIFORM, sizeof(SkyBoxUniformBufferObject), nullptr},
+                    {1, TEXTURE, 0,                           &texture}
+                });
+        else
+            descriptorSet.init(baseProjectPtr, descriptorSetLayoutPtr, {
+                    {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
+                    {1, TEXTURE, 0,                           &texture}
+                });
     }
 
     void init(std::string modelPath) {
