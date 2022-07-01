@@ -9,9 +9,9 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
 };
 struct SkyBoxUniformBufferObject {
+    alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
-    alignas(16) glm::mat4 model;
 };
 
 static auto startTime = std::chrono::high_resolution_clock::now();

@@ -116,7 +116,7 @@ protected:
 
         SkyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
                             {&SkyBoxDescriptorSetLayout},true);
-        skybox.init("models/SkyBox.obj", "textures/fog.png", true);
+        skybox.init("models/skybox.obj", "textures/fog.png", true);
 
     }
 
@@ -262,9 +262,9 @@ protected:
         glm::mat4 cameraMatrix = glm::lookAt(cameraPosition, drone.position, glm::vec3(0, 1, 0));
 
 
-/*        glm::mat3 CamDir = glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.y, glm::vec3(0.0f, 1.0f, 0.0f))) *
-                           glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.z, glm::vec3(1.0f, 0.0f, 0.0f))) *
-                           glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.x, glm::vec3(0.0f, 0.0f, 1.0f)));*/
+        glm::mat3 CamDir = glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.y, glm::vec3(0.0f, 1.0f, 0.0f))) *
+                           glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.x, glm::vec3(1.0f, 0.0f, 0.0f))) *
+                           glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.z, glm::vec3(0.0f, 0.0f, 1.0f)));
 
         GlobalUniformBufferObject gubo{};
         gubo.view = cameraMatrix;
@@ -301,21 +301,16 @@ protected:
         SkyBoxUniformBufferObject subo{};
 
         void *dataSB;
-
-        /*glm::mat3 CamDir = glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.y, glm::vec3(0.0f, 1.0f, 0.0f))) *
-            glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.z, glm::vec3(1.0f, 0.0f, 0.0f))) *
-            glm::mat3(glm::rotate(glm::mat4(1.0f), cameraAngle.x, glm::vec3(0.0f, 0.0f, 1.0f)));
-        glm::mat4 CamMat = glm::translate(glm::transpose(glm::mat4(CamDir)), -cameraPosition);*/
-
-        //TODO  not working
-        subo.model = glm::mat4(1.0f);/*glm::translate(glm::mat4(1.0f), -drone.position) *
-            glm::scale(glm::mat4(1.0f), glm::vec3(1.2f));*/
+        //Skybox
+        subo.model = 
+            glm::translate(glm::mat4(1.0f), drone.position) *
+            glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -farPlane/2, 0.0f))*
+            glm::scale(glm::mat4(1.0f), glm::vec3(4* farPlane));
         subo.view = cameraMatrix;
         subo.proj = glm::perspective(glm::radians(60.0f),
             swapChainExtent.width / (float)swapChainExtent.height,
-            0.1f, farPlane);
+            0.1f, 8*farPlane);
         subo.proj[1][1] *= -1;
-        // For the SkyBox
         vkMapMemory(device, skybox.descriptorSet.uniformBuffersMemory[0][currentImage], 0,
                     sizeof(subo), 0, &dataSB);
         memcpy(dataSB, &subo, sizeof(subo));
