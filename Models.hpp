@@ -6,9 +6,15 @@
 #include <glm/gtx/string_cast.hpp>
 #include <map>
 
+struct GlobalUniformBufferObject {
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+};
+
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
 };
+
 struct SkyBoxUniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
@@ -54,7 +60,7 @@ public:
         });
     }
 
-    void populateCommandBuffer(VkCommandBuffer *commandBuffer, int currentImage) {
+    void populateCommandBuffer(VkCommandBuffer *commandBuffer, int currentImage, int firstDescriptorSet) {
         VkBuffer vertexBuffers[] = {model.vertexBuffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(*commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -62,7 +68,7 @@ public:
                              VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(*commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                (*pipeline).pipelineLayout, 1, 1, &descriptorSet.descriptorSets[currentImage],
+                                (*pipeline).pipelineLayout, firstDescriptorSet, 1, &descriptorSet.descriptorSets[currentImage],
                                 0, nullptr);
         vkCmdDrawIndexed(*commandBuffer,
                          static_cast<uint32_t>(model.indices.size()), 1, 0, 0, 0);
@@ -74,6 +80,15 @@ public:
         vkMapMemory(*devicePtr, descriptorSet.uniformBuffersMemory[0][currentImage], 0,
                     sizeof(*uboPtr), 0, &dataPtr);
         memcpy(dataPtr, uboPtr, sizeof(*uboPtr));
+        vkUnmapMemory(*devicePtr, descriptorSet.uniformBuffersMemory[0][currentImage]);
+    }
+
+    void draw(uint32_t currentImage, SkyBoxUniformBufferObject *suboPtr, void *dataPtr, VkDevice *devicePtr,
+              glm::mat4 worldMatrix) {
+        (*suboPtr).model = worldMatrix;
+        vkMapMemory(*devicePtr, descriptorSet.uniformBuffersMemory[0][currentImage], 0,
+                    sizeof(*suboPtr), 0, &dataPtr);
+        memcpy(dataPtr, suboPtr, sizeof(*suboPtr));
         vkUnmapMemory(*devicePtr, descriptorSet.uniformBuffersMemory[0][currentImage]);
     }
 
@@ -278,7 +293,7 @@ public:
             return;
         }
         fanSpeed += fanSpeed < FAN_MAX_SPEED ? FAN_ACCELERATION_RATE : 0.f;
-        std::cout << "ACTIVATE: " << fanSpeed << std::endl;
+       // std::cout << "ACTIVATE: " << fanSpeed << std::endl;
     }
 
     void deactivateFans() {
@@ -289,7 +304,7 @@ public:
         if (fanSpeed < FAN_MIN_SPEED) {
             fanSpeed = FAN_MIN_SPEED;
         }
-        std::cout << "DEACTIVATE: " << fanSpeed << std::endl;
+        //std::cout << "DEACTIVATE: " << fanSpeed << std::endl;
     }
 
     void moveView(float deltaT, float v) {
@@ -302,18 +317,17 @@ public:
 
 class Terrain {
 public:
-    BaseModel *terrainBaseModel;
+    BaseModel terrainBaseModel;
 
     glm::vec3 position = glm::vec3(-20.0f, -10.0f, 30.0f);
     glm::vec3 direction = glm::vec3(90.f, 0.f, 0.f);
     float scale_factor = 5.f;
 
-    Terrain(BaseModel *terrainBaseModel) {
-        this->terrainBaseModel = terrainBaseModel;
-    }
+    Terrain(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr,
+            Pipeline *pipeline) : terrainBaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline) {};
+
 
     void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
-
         glm::mat4 translation = glm::translate(glm::mat4(1), position);
         glm::mat4 rotation = glm::rotate(glm::mat4(1.0f),
                                          glm::radians(-90.0f),
@@ -321,11 +335,6 @@ public:
         glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
 
         glm::mat4 worldMatrix = translation * rotation * scaling;
-
-        (*uboPtr).model = worldMatrix;
-        vkMapMemory(*devicePtr, (*terrainBaseModel).descriptorSet.uniformBuffersMemory[0][currentImage], 0,
-                    sizeof(*uboPtr), 0, &dataPtr);
-        memcpy(dataPtr, uboPtr, sizeof(*uboPtr));
-        vkUnmapMemory(*devicePtr, (*terrainBaseModel).descriptorSet.uniformBuffersMemory[0][currentImage]);
+        terrainBaseModel.draw(currentImage, uboPtr, dataPtr, devicePtr, worldMatrix);
     }
 };
