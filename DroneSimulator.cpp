@@ -98,15 +98,15 @@ protected:
         PipelineTerrain.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv", {&DSLglobal, &DSLobj},false);
 
         // Terrain
-        terrainBaseModel.init("../models/Terrain.obj", "../textures/cliff1Color.png");
+        terrainBaseModel.init("models/Terrain.obj", "../textures/cliff1Color.png");
 
         PipelineDrone.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", { &DSLglobal, &DSLobj }, false);
 
         // Drone
-        droneBaseModel.init("../models/test.obj", "../textures/drone.png");
+        droneBaseModel.init("models/test.obj", "../textures/drone.png");
         // Fans
         for (auto &i: fansArray) {
-            i.init("../models/test2.obj");
+            i.init("models/test2.obj");
         }
 
         /*---- SKYBOX ----*/
