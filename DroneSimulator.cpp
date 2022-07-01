@@ -92,14 +92,14 @@ protected:
                              {&DSLglobal, &DSLobj}, false);
 
         // Terrain
-        terrainBaseModel.init("models/Terrain.obj", "../textures/cliff1Color.png");
+        terrainPipeline.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv",
+        terrain.terrainBaseModel.init("models/Terrain.obj", "../textures/terrain.png");
 
         PipelineDrone.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj},
                            false);
-
-        drone.droneBaseModel.init("models/test.obj", "../textures/drone.png");
+        drone.droneBaseModel.init("models/Drone.obj", "../textures/drone.png");
         for (auto &i: drone.fanBaseModelList) {
-            i.init("models/test2.obj");
+            i.init("models/Fan.obj");
         }
 //        // Drone
 //        droneBaseModel.init("models/test.obj", "../textures/drone.png");
@@ -115,8 +115,7 @@ protected:
         });
 
         SkyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
-                            {&SkyBoxDescriptorSetLayout},true);
-        skybox.init("models/skybox.obj", "textures/fog.png", true);
+        skyboxBaseModel.init("models/SkyBox.obj", "textures/fog.png", true);
 
     }
 
