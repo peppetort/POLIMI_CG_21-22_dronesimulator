@@ -4,8 +4,7 @@
 class DroneSimulator : public BaseProject {
 
 private:
-    glm::vec3 cameraAngle = glm::vec3(0.0f);
-    glm::vec3 cameraPosition = glm::vec3(0.0f, 1.6f, 3.0f);
+    glm::vec3 cameraPosition = glm::vec3(0.f);
     std::map<int, int> keys_status = {
             {GLFW_KEY_A,     GLFW_RELEASE},
             {GLFW_KEY_S,     GLFW_RELEASE},
@@ -32,7 +31,7 @@ protected:
 
     //Drone
     Pipeline dronePipeline;
-    Drone drone = Drone(this, &DSLobj, &dronePipeline);
+    Drone drone = Drone(this, &DSLobj, &dronePipeline, &cameraPosition);
 
     //Skybox
     DescriptorSetLayout SkyBoxDescriptorSetLayout; // for skybox
@@ -184,8 +183,6 @@ protected:
         keys_status[GLFW_KEY_DOWN] = glfwGetKey(window, GLFW_KEY_DOWN);
         keys_status[GLFW_KEY_RIGHT] = glfwGetKey(window, GLFW_KEY_RIGHT);
         keys_status[GLFW_KEY_LEFT] = glfwGetKey(window, GLFW_KEY_LEFT);
-
-        drone.setCameraPosition(&cameraPosition);
 
         if (keys_status[GLFW_KEY_A] == GLFW_PRESS) {
             drone.move(DroneDirections::L, deltaT);

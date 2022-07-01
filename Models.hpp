@@ -68,7 +68,8 @@ public:
                              VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(*commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                (*pipeline).pipelineLayout, firstDescriptorSet, 1, &descriptorSet.descriptorSets[currentImage],
+                                (*pipeline).pipelineLayout, firstDescriptorSet, 1,
+                                &descriptorSet.descriptorSets[currentImage],
                                 0, nullptr);
         vkCmdDrawIndexed(*commandBuffer,
                          static_cast<uint32_t>(model.indices.size()), 1, 0, 0, 0);
@@ -112,8 +113,7 @@ class Drone {
 private:
 
     // configurable parameters
-    const glm::vec3 INITIAL_POSITION = glm::vec3(0.0f, 0.0f, 0.0f);
-    const glm::vec3 INITIAL_DIRECTION = glm::vec3(0.0f, 0.0f, 0.0f);
+    const glm::vec3 INITIAL_POSITION = glm::vec3(40.0f, 5.0f, -5.0f);
 
     const float SCALE_FACTOR = 0.015f;
 
@@ -132,7 +132,7 @@ private:
     const float INCLINATION_SPEED = glm::radians(45.f);
     const float MAX_INCLINATION = glm::radians(15.f);
 
-    const float ROTATION_SPEED = glm::radians(35.f);
+    const float ROTATION_SPEED = glm::radians(60.f);
 
     // internal variables
     float fanSpeed = FAN_MIN_SPEED;
@@ -176,17 +176,28 @@ public:
     BaseModel fanBaseModelList[4];
 
     glm::vec3 position = INITIAL_POSITION;
-    glm::quat direction = glm::quat(INITIAL_DIRECTION);
+    glm::quat direction = glm::quat(glm::vec3(0.f));
     glm::quat lookDirection = glm::quat(glm::vec3(0.f));
 
     glm::vec3 *cameraPosition = nullptr;
 
     Drone(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr,
-          Pipeline *pipeline) : droneBaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
-                                fanBaseModelList{BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
-                                                 BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
-                                                 BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline),
-                                                 BaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline)} {};
+          Pipeline *pipeline, glm::vec3 *cameraPosition) : droneBaseModel(baseProjectPtr, descriptorSetLayoutPtr,
+                                                                          pipeline),
+                                                           fanBaseModelList{
+                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
+                                                                             pipeline),
+                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
+                                                                             pipeline),
+                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
+                                                                             pipeline),
+                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
+                                                                             pipeline)} {
+        this->cameraPosition = cameraPosition;
+        *(this->cameraPosition) = position;
+        (*(this->cameraPosition)).y += 1.6f;
+        (*(this->cameraPosition)).z += 3.0f;
+    };
 
     void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
 
@@ -220,10 +231,6 @@ public:
         positioningWRTDrone = glm::translate(glm::mat4(1.0f), glm::vec3(0.54f, 0.11f, 0.4f));
         fanWorldMatrix = movesAndInclination * positioningWRTDrone * scalingAndRotation;
         fanBaseModelList[3].draw(currentImage, uboPtr, dataPtr, devicePtr, fanWorldMatrix);
-    }
-
-    void setCameraPosition(glm::vec3 *cameraPosition) {
-        this->cameraPosition = cameraPosition;
     }
 
     void move(DroneDirections droneDirection, float deltaT) {
@@ -293,7 +300,7 @@ public:
             return;
         }
         fanSpeed += fanSpeed < FAN_MAX_SPEED ? FAN_ACCELERATION_RATE : 0.f;
-       // std::cout << "ACTIVATE: " << fanSpeed << std::endl;
+        // std::cout << "ACTIVATE: " << fanSpeed << std::endl;
     }
 
     void deactivateFans() {
