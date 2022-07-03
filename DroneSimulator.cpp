@@ -31,7 +31,7 @@ protected:
 
     //Drone
     Pipeline dronePipeline;
-    Drone drone = Drone(this, &DSLobj, &dronePipeline, &cameraPosition);
+    Drone drone = Drone(this, &DSLobj, &dronePipeline, &cameraPosition, &terrain);
 
     //Skybox
     DescriptorSetLayout SkyBoxDescriptorSetLayout; // for skybox
