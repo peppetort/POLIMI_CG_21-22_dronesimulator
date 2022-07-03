@@ -41,7 +41,7 @@ void main() {
 	
 	outColor = vec4(clamp(ambient + diffuse, vec3(0.0f), vec3(1.0f)), 1.0f);
 	  
-	float fogAmount = smoothstep(0.0f, 50.0f, v_fogDepth);
+	float fogAmount = smoothstep(0.0f, 200.0f, v_fogDepth);
 
 	outColor = mix(outColor, vec4(0.8, 0.9, 1, 1), fogAmount);
 }
