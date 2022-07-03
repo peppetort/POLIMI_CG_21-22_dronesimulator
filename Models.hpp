@@ -1,5 +1,6 @@
 #include "DroneSimulator.hpp"
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 struct GlobalUniformBufferObject {
     alignas(16) glm::mat4 view;
@@ -107,7 +108,7 @@ private:
 
     int lastVertexIndex = 0;
 
-    glm::vec3 getWorldPosition(glm::vec3 pos) const {
+    [[nodiscard]] glm::vec3 getWorldPosition(glm::vec3 pos) const {
         return worldMatrix * glm::vec4(pos, 1.0);
     }
 
@@ -190,7 +191,7 @@ private:
 
     const float ROTATION_SPEED = glm::radians(60.f);
 
-    const float MIN_DISTANCE_TO_TERRAIN = 0.5;
+    const float MIN_DISTANCE_TO_TERRAIN = 0.7;
 
     // internal variables
     float fanSpeed = FAN_MIN_SPEED;
@@ -222,10 +223,65 @@ private:
     };
 
     void updateDroneAndCameraPosition(float deltaT, glm::vec3 moveDirection, float speed) {
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), direction.y,
+                                         glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::vec4 translation = glm::vec4(moveDirection, 1);
+
+        glm::vec3 out = speed * glm::vec3(rotation * translation * deltaT);
+        /*     position += speed * glm::vec3(glm::rotate(glm::mat4(1.0f), direction.y,
+                                                       glm::vec3(0.0f, 1.0f, 0.0f)) *
+                                           glm::vec4(moveDirection, 1)) * deltaT;*/
         // move drone
-        position += speed * glm::vec3(glm::mat4(lookDirection) * glm::vec4(moveDirection, 1)) * deltaT;
+        position += out;
         // move camera
-        *cameraPosition += speed * glm::vec3(glm::mat4(lookDirection) * glm::vec4(moveDirection, 1)) * deltaT;
+        *cameraPosition += out;
+    }
+
+    void setInclination(DroneDirections droneDirection, float deltaT, float v) {
+        auto x = directionToInclinationVectorMap.find(droneDirection);
+
+        if (x != directionToInclinationVectorMap.end()) {
+            float inclinationRate = glm::dot(direction,
+                                             directionToInclinationVectorMap[droneDirection]);
+
+
+            if (v == 1 && inclinationRate < 0.f) {
+                return;
+            }
+
+            if (v == -1 && inclinationRate >= MAX_INCLINATION) {
+                return;
+            }
+
+            switch (droneDirection) {
+                case DroneDirections::F:
+                    direction.x += v * deltaT * INCLINATION_SPEED;
+                    if (v == 1 && direction.x > 0) {
+                        direction.x = 0;
+                    }
+                    break;
+                case DroneDirections::B:
+                    direction.x -= v * deltaT * INCLINATION_SPEED;
+                    if (v == 1 && direction.x < 0) {
+                        direction.x = 0;
+                    }
+                    break;
+                case DroneDirections::L:
+                    direction.z -= v * deltaT * INCLINATION_SPEED;
+                    if (v == 1 && direction.z < 0) {
+                        direction.z = 0;
+                    }
+                    break;
+                case DroneDirections::R:
+                    direction.z += v * deltaT * INCLINATION_SPEED;
+                    if (v == 1 && direction.z > 0) {
+                        direction.z = 0;
+                    }
+                    break;
+                default:
+                    return;
+            }
+        }
     }
 
     bool canStep() {
@@ -243,9 +299,7 @@ public:
     BaseModel fanBaseModelList[4];
 
     glm::vec3 position = INITIAL_POSITION;
-    glm::quat direction = glm::quat(glm::vec3(0.f));
-    glm::quat lookDirection = glm::quat(glm::vec3(0.f));
-
+    glm::vec3 direction = glm::vec3(0.f);
     glm::vec3 *cameraPosition = nullptr;
     Terrain *terrain;
 
@@ -275,13 +329,15 @@ public:
         (*(this->cameraPosition)).z += 3.0f;
     };
 
-    glm::vec3 getWorldPosition(glm::vec3 pos, glm::mat4 worldMatrix) {
+    static glm::vec3 getWorldPosition(glm::vec3 pos, glm::mat4 worldMatrix) {
         return worldMatrix * glm::vec4(pos, 1.f);
     }
 
-    glm::mat4 computeDroneWorldMatrix() {
+    [[nodiscard]] glm::mat4 computeDroneWorldMatrix() const {
         glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
-        glm::mat4 droneRotation = glm::mat4(lookDirection) * glm::mat4(direction);
+        glm::mat4 droneRotation = glm::mat4(glm::quat(glm::vec3(0, direction.y, 0)) *
+                                            glm::quat(glm::vec3(direction.x, 0, 0)) *
+                                            glm::quat(glm::vec3(0, 0, direction.z)));
         glm::mat4 droneScaling = glm::scale(glm::mat4(1.0f), glm::vec3(SCALE_FACTOR));
         return droneTranslation * droneRotation * droneScaling;
     }
@@ -289,7 +345,9 @@ public:
     void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
 
         glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
-        glm::mat4 droneRotation = glm::mat4(lookDirection) * glm::mat4(direction);
+        glm::mat4 droneRotation = glm::mat4(glm::quat(glm::vec3(0, direction.y, 0)) *
+                                            glm::quat(glm::vec3(direction.x, 0, 0)) *
+                                            glm::quat(glm::vec3(0, 0, direction.z)));
         glm::mat4 droneScaling = glm::scale(glm::mat4(1.0f), glm::vec3(SCALE_FACTOR));
         droneWorldMatrix = computeDroneWorldMatrix();
         droneBaseModel.draw(currentImage, uboPtr, dataPtr, devicePtr, droneWorldMatrix);
@@ -323,27 +381,12 @@ public:
     void move(DroneDirections droneDirection, float deltaT) {
         glm::vec3 dronePositionBk = position;
         glm::vec3 camPositionBk = *cameraPosition;
-        glm::quat directionBk = direction;
 
         if (fanSpeed < MIN_FAN_SPEED_TO_MOVE * 0.5) {
             return;
         }
 
-        auto x = directionToInclinationVectorMap.find(droneDirection);
-
-        if (x != directionToInclinationVectorMap.end()) {
-            float inclination_rate = glm::dot(glm::eulerAngles(direction),
-                                              directionToInclinationVectorMap[droneDirection]);
-
-            if (inclination_rate < MAX_INCLINATION) {
-                direction = glm::rotate(direction, deltaT * INCLINATION_SPEED,
-                                        directionToInclinationVectorMap[droneDirection]);
-            } else if (inclination_rate > MAX_INCLINATION) {
-                direction = glm::rotate(direction, glm::radians(0.f),
-                                        directionToInclinationVectorMap[droneDirection]);
-            }
-        }
-
+        setInclination(droneDirection, deltaT, -1);
 
         if (fanSpeed < MIN_FAN_SPEED_TO_MOVE) {
             return;
@@ -357,29 +400,15 @@ public:
         if (!canStep()) {
             position = dronePositionBk;
             *cameraPosition = camPositionBk;
-            direction = glm::qua(glm::vec3(0.f));
+            direction = glm::vec3(0, direction.y, 0);
         }
     }
 
     void stop(DroneDirections droneDirection, float deltaT) {
         glm::vec3 dronePositionBk = position;
         glm::vec3 camPositionBk = *cameraPosition;
-        glm::quat directionBk = direction;
 
-        auto x = directionToInclinationVectorMap.find(droneDirection);
-
-        if (x != directionToInclinationVectorMap.end()) {
-            float inclination_rate = glm::dot(glm::eulerAngles(direction),
-                                              directionToInclinationVectorMap[droneDirection]);
-
-            if (inclination_rate > 0.f) {
-                direction = glm::rotate(direction, -deltaT * INCLINATION_SPEED,
-                                        directionToInclinationVectorMap[droneDirection]);
-            } else if (inclination_rate < 0.f) {
-                direction = glm::rotate(direction, glm::radians(0.f),
-                                        directionToInclinationVectorMap[droneDirection]);
-            }
-        }
+        setInclination(droneDirection, deltaT, 1);
 
         float speed = droneSpeedPerDirectionMap[droneDirection];
         if (speed <= 0) {
@@ -395,7 +424,7 @@ public:
         if (!canStep()) {
             position = dronePositionBk;
             *cameraPosition = camPositionBk;
-            direction = glm::qua(glm::vec3(0.f));
+            direction = glm::vec3(0, direction.y, 0);
         }
     }
 
@@ -419,7 +448,7 @@ public:
     }
 
     void moveView(float deltaT, float v) {
-        lookDirection = glm::rotate(lookDirection, v * deltaT * ROTATION_SPEED, glm::vec3(0, 1, 0));
+        direction.y += v * deltaT * ROTATION_SPEED;
         glm::mat4 translation = glm::translate(glm::mat4(1.f), position);
         glm::mat4 rotation = glm::rotate(glm::mat4(1.f), v * ROTATION_SPEED * deltaT, glm::vec3(0, 1, 0));
         (*cameraPosition) = translation * rotation * glm::inverse(translation) * glm::vec4((*cameraPosition), 1.0f);
