@@ -1,10 +1,5 @@
 #include "DroneSimulator.hpp"
-#include <string>
-#include <utility>
 #include <glm/gtc/quaternion.hpp>
-#include <glm/gtc/matrix_access.hpp>
-#include <glm/gtx/string_cast.hpp>
-#include <map>
 
 struct GlobalUniformBufferObject {
     alignas(16) glm::mat4 view;
@@ -104,6 +99,67 @@ public:
 
 };
 
+class Terrain {
+private:
+    /// Max difference to consider 2 vertex the same
+    const float VERTEX_OFFSET = 0.8;
+    const int MAX_VERTEX_SEARCH_WINDOW = 3000;
+
+    int lastVertexIndex = 0;
+
+    glm::vec3 getWorldPosition(glm::vec3 pos) const {
+        return worldMatrix * glm::vec4(pos, 1.0);
+    }
+
+public:
+    BaseModel terrainBaseModel;
+
+    glm::vec3 position = glm::vec3(-20.0f, -10.0f, 30.0f);
+    glm::vec3 direction = glm::vec3(90.f, 0.f, 0.f);
+    float scale_factor = 5.f;
+    glm::mat4 worldMatrix = glm::mat4(1.f);
+
+    Terrain(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr,
+            Pipeline *pipeline) : terrainBaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline) {};
+
+
+    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
+        glm::mat4 translation = glm::translate(glm::mat4(1), position);
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f),
+                                         glm::radians(-90.0f),
+                                         glm::vec3(1.0f, 0.0f, 0.0f));
+        glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
+
+        worldMatrix = translation * rotation * scaling;
+        terrainBaseModel.draw(currentImage, uboPtr, dataPtr, devicePtr, worldMatrix);
+    }
+
+
+    glm::vec3 getVertex(float x, float z) {
+        auto terrainVertices = terrainBaseModel.model.vertices;
+        int window_upper_bound =
+                lastVertexIndex == 0 ? terrainVertices.size() : fmin(lastVertexIndex + MAX_VERTEX_SEARCH_WINDOW,
+                                                                     terrainVertices.size());
+
+
+        for (int i = lastVertexIndex; i < window_upper_bound; i++) {
+            glm::vec3 worldVertex = getWorldPosition(terrainVertices[i].pos);
+            if (abs(worldVertex.x - x) < VERTEX_OFFSET && abs(worldVertex.z - z) < VERTEX_OFFSET) {
+                lastVertexIndex = i;
+                return worldVertex;
+            }
+        }
+        for (int i = lastVertexIndex; i > fmax(lastVertexIndex - MAX_VERTEX_SEARCH_WINDOW, 0); i--) {
+            glm::vec3 worldVertex = getWorldPosition(terrainVertices[i].pos);
+            if (abs(worldVertex.x - x) < VERTEX_OFFSET && abs(worldVertex.z - z) < VERTEX_OFFSET) {
+                lastVertexIndex = i;
+                return worldVertex;
+            }
+        }
+        return glm::vec3(0.f);
+    }
+};
+
 enum DroneDirections {
     F, B, R, L, U, D
 };
@@ -133,6 +189,8 @@ private:
     const float MAX_INCLINATION = glm::radians(15.f);
 
     const float ROTATION_SPEED = glm::radians(60.f);
+
+    const float MIN_DISTANCE_TO_TERRAIN = 0.5;
 
     // internal variables
     float fanSpeed = FAN_MIN_SPEED;
@@ -170,6 +228,15 @@ private:
         *cameraPosition += speed * glm::vec3(glm::mat4(lookDirection) * glm::vec4(moveDirection, 1)) * deltaT;
     }
 
+    bool canStep() {
+        glm::mat4 dwm = computeDroneWorldMatrix();
+        glm::vec3 droneVertexWorldPos = getWorldPosition(droneBaseModel.model.vertices[315].pos, dwm);
+        glm::vec3 terrainVertexWorldPos = (*terrain).getVertex(droneVertexWorldPos.x, droneVertexWorldPos.z);
+        glm::vec3 droneToTerrainDirection = glm::normalize(droneVertexWorldPos - terrainVertexWorldPos);
+
+        return droneToTerrainDirection.y > MIN_DISTANCE_TO_TERRAIN;
+    }
+
 public:
 
     BaseModel droneBaseModel;
@@ -180,31 +247,51 @@ public:
     glm::quat lookDirection = glm::quat(glm::vec3(0.f));
 
     glm::vec3 *cameraPosition = nullptr;
+    Terrain *terrain;
+
+    glm::mat4 droneWorldMatrix = glm::mat4(1.f);
 
     Drone(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr,
-          Pipeline *pipeline, glm::vec3 *cameraPosition) : droneBaseModel(baseProjectPtr, descriptorSetLayoutPtr,
-                                                                          pipeline),
-                                                           fanBaseModelList{
-                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
-                                                                             pipeline),
-                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
-                                                                             pipeline),
-                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
-                                                                             pipeline),
-                                                                   BaseModel(baseProjectPtr, descriptorSetLayoutPtr,
-                                                                             pipeline)} {
+          Pipeline *pipeline, glm::vec3 *cameraPosition, Terrain *terrain) : droneBaseModel(baseProjectPtr,
+                                                                                            descriptorSetLayoutPtr,
+                                                                                            pipeline),
+                                                                             fanBaseModelList{
+                                                                                     BaseModel(baseProjectPtr,
+                                                                                               descriptorSetLayoutPtr,
+                                                                                               pipeline),
+                                                                                     BaseModel(baseProjectPtr,
+                                                                                               descriptorSetLayoutPtr,
+                                                                                               pipeline),
+                                                                                     BaseModel(baseProjectPtr,
+                                                                                               descriptorSetLayoutPtr,
+                                                                                               pipeline),
+                                                                                     BaseModel(baseProjectPtr,
+                                                                                               descriptorSetLayoutPtr,
+                                                                                               pipeline)} {
+        this->terrain = terrain;
         this->cameraPosition = cameraPosition;
         *(this->cameraPosition) = position;
         (*(this->cameraPosition)).y += 1.6f;
         (*(this->cameraPosition)).z += 3.0f;
     };
 
+    glm::vec3 getWorldPosition(glm::vec3 pos, glm::mat4 worldMatrix) {
+        return worldMatrix * glm::vec4(pos, 1.f);
+    }
+
+    glm::mat4 computeDroneWorldMatrix() {
+        glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
+        glm::mat4 droneRotation = glm::mat4(lookDirection) * glm::mat4(direction);
+        glm::mat4 droneScaling = glm::scale(glm::mat4(1.0f), glm::vec3(SCALE_FACTOR));
+        return droneTranslation * droneRotation * droneScaling;
+    }
+
     void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
 
         glm::mat4 droneTranslation = glm::translate(glm::mat4(1), position);
         glm::mat4 droneRotation = glm::mat4(lookDirection) * glm::mat4(direction);
         glm::mat4 droneScaling = glm::scale(glm::mat4(1.0f), glm::vec3(SCALE_FACTOR));
-        glm::mat4 droneWorldMatrix = droneTranslation * droneRotation * droneScaling;
+        droneWorldMatrix = computeDroneWorldMatrix();
         droneBaseModel.draw(currentImage, uboPtr, dataPtr, devicePtr, droneWorldMatrix);
 
 
@@ -234,6 +321,10 @@ public:
     }
 
     void move(DroneDirections droneDirection, float deltaT) {
+        glm::vec3 dronePositionBk = position;
+        glm::vec3 camPositionBk = *cameraPosition;
+        glm::quat directionBk = direction;
+
         if (fanSpeed < MIN_FAN_SPEED_TO_MOVE * 0.5) {
             return;
         }
@@ -263,9 +354,18 @@ public:
         speed += speed < DRONE_MAX_SPEED ? DRONE_ACCELERATION_RATE : 0.f;
         droneSpeedPerDirectionMap[droneDirection] = speed;
         updateDroneAndCameraPosition(deltaT, directionToVectorMap[droneDirection], speed);
+        if (!canStep()) {
+            position = dronePositionBk;
+            *cameraPosition = camPositionBk;
+            direction = glm::qua(glm::vec3(0.f));
+        }
     }
 
     void stop(DroneDirections droneDirection, float deltaT) {
+        glm::vec3 dronePositionBk = position;
+        glm::vec3 camPositionBk = *cameraPosition;
+        glm::quat directionBk = direction;
+
         auto x = directionToInclinationVectorMap.find(droneDirection);
 
         if (x != directionToInclinationVectorMap.end()) {
@@ -292,8 +392,12 @@ public:
         }
         droneSpeedPerDirectionMap[droneDirection] = speed;
         updateDroneAndCameraPosition(deltaT, directionToVectorMap[droneDirection], speed);
+        if (!canStep()) {
+            position = dronePositionBk;
+            *cameraPosition = camPositionBk;
+            direction = glm::qua(glm::vec3(0.f));
+        }
     }
-
 
     void activateFans() {
         if (fanSpeed >= FAN_MAX_SPEED) {
@@ -322,26 +426,3 @@ public:
     }
 };
 
-class Terrain {
-public:
-    BaseModel terrainBaseModel;
-
-    glm::vec3 position = glm::vec3(-20.0f, -10.0f, 30.0f);
-    glm::vec3 direction = glm::vec3(90.f, 0.f, 0.f);
-    float scale_factor = 5.f;
-
-    Terrain(BaseProject *baseProjectPtr, DescriptorSetLayout *descriptorSetLayoutPtr,
-            Pipeline *pipeline) : terrainBaseModel(baseProjectPtr, descriptorSetLayoutPtr, pipeline) {};
-
-
-    void draw(uint32_t currentImage, UniformBufferObject *uboPtr, void *dataPtr, VkDevice *devicePtr) {
-        glm::mat4 translation = glm::translate(glm::mat4(1), position);
-        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f),
-                                         glm::radians(-90.0f),
-                                         glm::vec3(1.0f, 0.0f, 0.0f));
-        glm::mat4 scaling = glm::scale(glm::mat4(1.0f), glm::vec3(scale_factor));
-
-        glm::mat4 worldMatrix = translation * rotation * scaling;
-        terrainBaseModel.draw(currentImage, uboPtr, dataPtr, devicePtr, worldMatrix);
-    }
-};
