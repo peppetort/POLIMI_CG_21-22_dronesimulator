@@ -79,7 +79,7 @@ protected:
         terrainPipeline.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv",
                              {&DSLglobal, &DSLobj},first, false);
         
-        terrain.terrainBaseModel.init("models/Terrain.obj", "textures/terrain.png",first);
+        terrain.terrainBaseModel.init("models/Terrain.obj", "textures/t.jpg",first);
 
         // Drone
         dronePipeline.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj}, first,

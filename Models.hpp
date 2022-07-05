@@ -185,8 +185,8 @@ private:
 
     const float SCALE_FACTOR = 0.015f;
 
-    const float FAN_MAX_SPEED = 30.f;
-    const float FAN_MIN_SPEED = 10.f;
+    const float FAN_MAX_SPEED = 50.f;
+    const float FAN_MIN_SPEED = 20.f;
     const float FAN_DECELERATION_RATE = 0.5f;
     const float FAN_ACCELERATION_RATE = 0.5f;
 
