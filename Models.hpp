@@ -34,9 +34,12 @@ public:
         this->pipeline = pipeline;
     }
 
-    void init(std::string modelPath, std::string texturePath, bool isSkyBox = false) {
-        model.init(baseProjectPtr, std::move(modelPath));
-        texture.init(baseProjectPtr, std::move(texturePath));
+    void init(std::string modelPath, std::string texturePath, bool first, bool isSkyBox = false) {
+        if (first) {
+            model.init(baseProjectPtr, std::move(modelPath));
+            texture.init(baseProjectPtr, std::move(texturePath));
+        }
+
         if (isSkyBox)
             descriptorSet.init(baseProjectPtr, descriptorSetLayoutPtr, {
                     {0, UNIFORM, sizeof(SkyBoxUniformBufferObject), nullptr},
@@ -47,13 +50,17 @@ public:
                     {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
                     {1, TEXTURE, 0,                           &texture}
             });
-    }
+        
+}
 
-    void init(std::string modelPath) {
-        model.init(baseProjectPtr, std::move(modelPath));
+    void init(std::string modelPath, bool first) {
+        if (first) {
+            model.init(baseProjectPtr, std::move(modelPath));
+        }
         descriptorSet.init(baseProjectPtr, descriptorSetLayoutPtr, {
-                {0, UNIFORM, sizeof(UniformBufferObject), nullptr}
-        });
+                        {0, UNIFORM, sizeof(UniformBufferObject), nullptr}
+                });
+        
     }
 
     void populateCommandBuffer(VkCommandBuffer *commandBuffer, int currentImage, int firstDescriptorSet) {
@@ -90,12 +97,16 @@ public:
     }
 
 
-    void cleanUp() {
-        model.cleanup();
-        if (descriptorSet.uniformBuffers.size() > 1) {
-            texture.cleanup();
+    void cleanUp(bool definitive) {
+        if (definitive) {
+            model.cleanup();
+            if (descriptorSet.uniformBuffers.size() > 1) {
+                texture.cleanup();
+            }
         }
         descriptorSet.cleanup();
+
+            
     }
 
 };

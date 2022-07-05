@@ -231,7 +231,7 @@ struct Pipeline {
   	VkPipelineLayout pipelineLayout;
   	
   	void init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-  			  std::vector<DescriptorSetLayout *> D, bool isSkyBox);
+  			  std::vector<DescriptorSetLayout *> D, bool first,bool isSkyBox);
   	VkShaderModule createShaderModule(const std::vector<char>& code);
   	static std::vector<char> readFile(const std::string& filename);  	
 	void cleanup();
@@ -324,6 +324,8 @@ protected:
 	// L22.2 --- Frame buffers
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	size_t currentFrame = 0;
+	bool framebufferResized = false;
+
 
 	// L22.3 --- Synchronization objects
 	std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -336,12 +338,19 @@ protected:
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        //glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         window = glfwCreateWindow(windowWidth, windowHeight, windowTitle.c_str(), nullptr, nullptr);
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
+	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+		auto app = reinterpret_cast<BaseProject*>
+			(glfwGetWindowUserPointer(window));
+		app->framebufferResized = true;
+	}
 
-	virtual void localInit() = 0;
+	virtual void localInit(bool first = true) = 0;
 
 	// Lesson 12
     void initVulkan() {
@@ -1359,69 +1368,166 @@ protected:
         
         vkDeviceWaitIdle(device);
     }
+	void recreateSwapChain() {
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(window, &width, &height);
+
+		while (width == 0 || height == 0) {
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+
+		vkDeviceWaitIdle(device);
+
+		cleanupSwapChain();
+		localCleanup(false);
+
+		createSwapChain();
+		createImageViews();
+		createRenderPass();
+		//createColorResources();
+		createDepthResources();
+		createFramebuffers();
+		createDescriptorPool();
+		localInit(false);
+		createCommandBuffers();
+	}
+	void cleanupSwapChain() {
+		/*vkDestroyImageView(device, colorImageView, nullptr);
+		vkDestroyImage(device, colorImage, nullptr);
+		vkFreeMemory(device, colorImageMemory, nullptr);*/
+
+		vkDestroyImageView(device, depthImageView, nullptr);
+		vkDestroyImage(device, depthImage, nullptr);
+		vkFreeMemory(device, depthImageMemory, nullptr);
+
+		for (size_t i = 0; i < swapChainFramebuffers.size(); i++) {
+			vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
+		}
+
+		vkFreeCommandBuffers(device, commandPool,
+			static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+
+		/*vkDestroyPipeline(device, PhongPipeline, nullptr);
+		vkDestroyPipeline(device, PhongWirePipeline, nullptr);
+		vkDestroyPipelineLayout(device, PhongPipelineLayout, nullptr);
+		vkDestroyPipelineLayout(device, PhongWirePipelineLayout, nullptr);
+
+		vkDestroyPipeline(device, SkyBoxPipeline, nullptr);
+		vkDestroyPipelineLayout(device, SkyBoxPipelineLayout, nullptr);
+
+		vkDestroyPipeline(device, TextPipeline, nullptr);
+		vkDestroyPipelineLayout(device, TextPipelineLayout, nullptr);*/
+
+		vkDestroyRenderPass(device, renderPass, nullptr);
+
+		for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+			vkDestroyImageView(device, swapChainImageViews[i], nullptr);
+		}
+
+		vkDestroySwapchainKHR(device, swapChain, nullptr);
+
+		/*for (size_t i = 0; i < swapChainImages.size() * Scene.size(); i++) {
+			vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+			vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+		}
+		for (size_t i = 0; i < swapChainImages.size(); i++) {
+			vkDestroyBuffer(device, globalUniformBuffers[i], nullptr);
+			vkFreeMemory(device, globalUniformBuffersMemory[i], nullptr);
+		}
+		for (size_t i = 0; i < swapChainImages.size(); i++) {
+			vkDestroyBuffer(device, SkyBoxUniformBuffers[i], nullptr);
+			vkFreeMemory(device, SkyBoxUniformBuffersMemory[i], nullptr);
+		}
+		for (size_t i = 0; i < swapChainImages.size(); i++) {
+			vkDestroyBuffer(device, TextUniformBuffers[i], nullptr);
+			vkFreeMemory(device, TextUniformBuffersMemory[i], nullptr);
+		}*/
+
+		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+	}
+
     
     // Lesson 22.6
     void drawFrame() {
 		vkWaitForFences(device, 1, &inFlightFences[currentFrame],
-						VK_TRUE, UINT64_MAX);
-		
+			VK_TRUE, UINT64_MAX);
+
 		uint32_t imageIndex;
-		
+
 		VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX,
-				imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+			imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+			recreateSwapChain();
+			return;
+		}
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+			throw std::runtime_error("failed to acquire swap chain image!");
+		}
 
 		if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
 			vkWaitForFences(device, 1, &imagesInFlight[imageIndex],
-							VK_TRUE, UINT64_MAX);
+				VK_TRUE, UINT64_MAX);
 		}
 		imagesInFlight[imageIndex] = inFlightFences[currentFrame];
-		
+
 		updateUniformBuffer(imageIndex);
-		
+
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
+		VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
 		VkPipelineStageFlags waitStages[] =
-			{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+		{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
-		VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
+		VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
-		
+
 		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
 		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo,
-				inFlightFences[currentFrame]) != VK_SUCCESS) {
+			inFlightFences[currentFrame]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
-		
+
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		presentInfo.waitSemaphoreCount = 1;
 		presentInfo.pWaitSemaphores = signalSemaphores;
-		
-		VkSwapchainKHR swapChains[] = {swapChain};
+
+		VkSwapchainKHR swapChains[] = { swapChain };
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains;
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr; // Optional
-		
+
 		result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+			framebufferResized) {
+			framebufferResized = false;
+			recreateSwapChain();
+		}
+		else if (result != VK_SUCCESS) {
+			throw std::runtime_error("failed to present swap chain image!");
+		}
 
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
 	virtual void updateUniformBuffer(uint32_t currentImage) = 0;
 
-	virtual void localCleanup() = 0;
+	virtual void localCleanup(bool first = true) = 0;
 	
 	// All lessons
 	
     void cleanup() {
+
 		vkDestroyImageView(device, depthImageView, nullptr);
 		vkDestroyImage(device, depthImage, nullptr);
 		vkFreeMemory(device, depthImageMemory, nullptr);
@@ -1659,16 +1765,18 @@ void Texture::cleanup() {
 
 
 void Pipeline::init(BaseProject *bp, const std::string& VertShader, const std::string& FragShader,
-					std::vector<DescriptorSetLayout *> D, bool isSkyBox) {
+					std::vector<DescriptorSetLayout *> D,bool first, bool isSkyBox) {
 	BP = bp;
 	
 	auto vertShaderCode = readFile(VertShader);
 	auto fragShaderCode = readFile(FragShader);
+	if (first) {
+		std::cout << "Vertex shader len: " <<
+						vertShaderCode.size() << "\n";
+		std::cout << "Fragment shader len: " <<
+						fragShaderCode.size() << "\n";
+	}
 	
-	std::cout << "Vertex shader len: " <<
-				vertShaderCode.size() << "\n";
-	std::cout << "Fragment shader len: " <<
-				fragShaderCode.size() << "\n";
 	
 	VkShaderModule vertShaderModule =
 			createShaderModule(vertShaderCode);

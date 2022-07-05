@@ -47,13 +47,13 @@ protected:
         initialBackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
 
         // Descriptor pool sizes
-        uniformBlocksInPool = 20;
-        texturesInPool = 20;
-        setsInPool = 20;
+        uniformBlocksInPool = 8;
+        texturesInPool = 7;
+        setsInPool = 8;
     }
 
     // Here you load and setup all your Vulkan objects
-    void localInit() {
+    void localInit(bool first = true) {
         // Descriptor Layouts [what will be passed to the shaders]
         DSLobj.init(this, {
                 // this array contains the binding:
@@ -77,16 +77,19 @@ protected:
 
         // Terrain
         terrainPipeline.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv",
-                             {&DSLglobal, &DSLobj}, false);
-        terrain.terrainBaseModel.init("models/Terrain.obj", "../textures/terrain.png");
+                             {&DSLglobal, &DSLobj},first, false);
+        
+        terrain.terrainBaseModel.init("models/Terrain.obj", "textures/terrain.png",first);
 
         // Drone
-        dronePipeline.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj},
+        dronePipeline.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj}, first,
                            false);
-        drone.droneBaseModel.init("models/Drone.obj", "../textures/drone.png");
-        for (auto &i: drone.fanBaseModelList) {
-            i.init("models/Fan.obj");
+
+        drone.droneBaseModel.init("models/Drone.obj", "textures/drone.png",first);
+        for (auto& i : drone.fanBaseModelList) {
+            i.init("models/Fan.obj","textures/fan.png", first);//Texture to avoid errors
         }
+        
 
         // Skybox
         SkyBoxDescriptorSetLayout.init(this, {
@@ -94,18 +97,18 @@ protected:
                 {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
         });
         skyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
-                            {&SkyBoxDescriptorSetLayout}, true);
-        skyboxBaseModel.init("models/SkyBox.obj", "textures/fog.png", true);
+                            {&SkyBoxDescriptorSetLayout}, first, true);
+        skyboxBaseModel.init("models/SkyBox.obj", "textures/fog.png", first, true);
 
     }
 
     // Here you destroy all the objects you created!
-    void localCleanup() {
+    void localCleanup(bool definitive = true) {
 
-        terrain.terrainBaseModel.cleanUp();
-        drone.droneBaseModel.cleanUp();
+        terrain.terrainBaseModel.cleanUp(definitive);
+        drone.droneBaseModel.cleanUp(definitive);
         for (auto &i: drone.fanBaseModelList) {
-            i.cleanUp();
+            i.cleanUp(definitive);
         }
 
         DS_global.cleanup();
@@ -115,7 +118,7 @@ protected:
         DSLglobal.cleanup();
         DSLobj.cleanup();
 
-        skyboxBaseModel.cleanUp();
+        skyboxBaseModel.cleanUp(definitive);
         skyBoxPipeline.cleanup();
         SkyBoxDescriptorSetLayout.cleanup();
     }
