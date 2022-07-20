@@ -5,6 +5,7 @@ class DroneSimulator : public BaseProject {
 
 private:
     glm::vec3 cameraPosition = glm::vec3(0.f);
+    /// mappa utilizzata per mantenere lo stato dei tasti
     std::map<int, int> keys_status = {
             {GLFW_KEY_A,     GLFW_RELEASE},
             {GLFW_KEY_S,     GLFW_RELEASE},
@@ -58,7 +59,7 @@ protected:
         DSLobj.init(this, {
                 // this array contains the binding:
                 // first  element : the binding number
-                // second element : the time of element (buffer or texture)
+                // second element : the type of element (buffer or texture)
                 // third  element : the pipeline stage where it will be used
                 {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_VERTEX_BIT},
                 {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
@@ -239,8 +240,10 @@ protected:
             isAtLeastOneKeyPressed = true;
         }
 
+        // se almeno un tasto è premuto le eliche vengono attivate, altrimenti si disattivano
         isAtLeastOneKeyPressed ? drone.activateFans() : drone.deactivateFans();
 
+        // modello lookAt, responsabile di mantenere il focus della camera sul drone
         glm::mat4 cameraMatrix = glm::lookAt(cameraPosition, drone.position, glm::vec3(0, 1, 0));
 
         GlobalUniformBufferObject gubo{};
