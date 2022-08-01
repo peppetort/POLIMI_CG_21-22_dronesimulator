@@ -34,10 +34,15 @@ public:
         this->pipeline = pipeline;
     }
 
-    void init(std::string modelPath, std::string texturePath, bool first, bool isSkyBox = false) {
+    void init(std::string modelPath, std::vector<std::string> texturePath, bool first, bool isSkyBox = false) {
         if (first) {
             model.init(baseProjectPtr, std::move(modelPath));
-            texture.init(baseProjectPtr, std::move(texturePath));
+            if (isSkyBox) {
+                texture.initSkyBox(baseProjectPtr, texturePath);
+            } else {
+                texture.init(baseProjectPtr, texturePath[0]);
+            }
+            //texture.init(baseProjectPtr, std::move(texturePath));
         }
 
         if (isSkyBox)
@@ -50,8 +55,8 @@ public:
                     {0, UNIFORM, sizeof(UniformBufferObject), nullptr},
                     {1, TEXTURE, 0,                           &texture}
             });
-        
-}
+
+    }
 
     void populateCommandBuffer(VkCommandBuffer *commandBuffer, int currentImage, int firstDescriptorSet) {
         VkBuffer vertexBuffers[] = {model.vertexBuffer};
@@ -96,7 +101,7 @@ public:
         }
         descriptorSet.cleanup();
 
-            
+
     }
 
 };

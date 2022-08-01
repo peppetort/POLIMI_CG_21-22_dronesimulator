@@ -80,15 +80,15 @@ protected:
         terrainPipeline.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv",
                              {&DSLglobal, &DSLobj},first, false);
         
-        terrain.terrainBaseModel.init("models/Terrain.obj", "textures/t.jpg",first);
+        terrain.terrainBaseModel.init("models/Terrain.obj", {"textures/t.jpg"},first);
 
         // Drone
         dronePipeline.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj}, first,
                            false);
 
-        drone.droneBaseModel.init("models/Drone.obj", "textures/drone.png",first);
+        drone.droneBaseModel.init("models/Drone.obj", {"textures/drone.png"},first);
         for (auto& i : drone.fanBaseModelList) {
-            i.init("models/Fan.obj","textures/fan.png", first);//Texture to avoid errors
+            i.init("models/Fan.obj",{"textures/fan.png"}, first);//Texture to avoid errors
         }
         
 
@@ -99,7 +99,7 @@ protected:
         });
         skyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
                             {&SkyBoxDescriptorSetLayout}, first, true);
-        skyboxBaseModel.init("models/SkyBox.obj", "textures/fog.png", first, true);
+        skyboxBaseModel.init("models/SkyBox.obj", {"textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg", "textures/negy.jpg", "textures/posz.jpg", "textures/negz.jpg"}, first, true);
 
     }
 
