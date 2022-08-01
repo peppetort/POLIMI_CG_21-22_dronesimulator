@@ -78,19 +78,20 @@ protected:
 
         // Terrain
         terrainPipeline.init(this, "shaders/shaderTerrainVert.spv", "shaders/shaderTerrainFrag.spv",
-                             {&DSLglobal, &DSLobj},first, false);
-        
-        terrain.terrainBaseModel.init("models/Terrain.obj", {"textures/t.jpg"},first);
+                             {&DSLglobal, &DSLobj}, first, false);
+
+        terrain.terrainBaseModel.init("models/Terrain.obj", {"textures/t2.png"}, first);
 
         // Drone
-        dronePipeline.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj}, first,
+        dronePipeline.init(this, "shaders/shaderDroneVert.spv", "shaders/shaderDroneFrag.spv", {&DSLglobal, &DSLobj},
+                           first,
                            false);
 
-        drone.droneBaseModel.init("models/Drone.obj", {"textures/drone.png"},first);
-        for (auto& i : drone.fanBaseModelList) {
-            i.init("models/Fan.obj",{"textures/fan.png"}, first);//Texture to avoid errors
+        drone.droneBaseModel.init("models/Drone.obj", {"textures/drone.png"}, first);
+        for (auto &i: drone.fanBaseModelList) {
+            i.init("models/Fan.obj", {"textures/fan.png"}, first);//Texture to avoid errors
         }
-        
+
 
         // Skybox
         SkyBoxDescriptorSetLayout.init(this, {
@@ -99,7 +100,9 @@ protected:
         });
         skyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
                             {&SkyBoxDescriptorSetLayout}, first, true);
-        skyboxBaseModel.init("models/SkyBox.obj", {"textures/posx.jpg", "textures/negx.jpg", "textures/posy.jpg", "textures/negy.jpg", "textures/posz.jpg", "textures/negz.jpg"}, first, true);
+        skyboxBaseModel.init("models/SkyBox.obj",
+                             {"textures/posx.png", "textures/negx.png", "textures/posy.png", "textures/negy.png",
+                              "textures/posz.png", "textures/negz.png"}, first, true);
 
     }
 
@@ -174,7 +177,7 @@ protected:
         float deltaT = time - lastTime;
         lastTime = time;
 
-        const float farPlane = 50.0;
+        const float farPlane = 100.0;
 
         bool isAtLeastOneKeyPressed = false;
 
@@ -276,9 +279,10 @@ protected:
                                      swapChainExtent.width / (float) swapChainExtent.height,
                                      0.1f, 8 * farPlane);
 
-        glm::mat4 worldMatrix = glm::translate(glm::mat4(1.0f), drone.position) *
-                                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -farPlane / 2, 0.0f)) *
-                                glm::scale(glm::mat4(1.0f), glm::vec3(4 * farPlane));
+        // remove comment if wants to translate skybox with drone
+        glm::mat4 worldMatrix = //glm::translate(glm::mat4(1.0f), drone.position) *
+                                glm::translate(glm::mat4(1.0f), glm::vec3(78.0f, -20.f, -78.0f)) *
+                                glm::scale(glm::mat4(1.0f), glm::vec3(83.5f));
 
         subo.proj[1][1] *= -1;
         skyboxBaseModel.draw(currentImage, &subo, &dataSB, &device, worldMatrix);
