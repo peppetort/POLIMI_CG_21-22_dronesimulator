@@ -204,6 +204,7 @@ private:
     const float ROTATION_SPEED = glm::radians(60.f);
 
     const float MIN_DISTANCE_TO_TERRAIN = 0.7;
+    const float MAX_VERTICAL_DISTANCE = 100;
 
     // internal variables
     float fanSpeed = FAN_MIN_SPEED;
@@ -302,7 +303,7 @@ private:
         }
     }
 
-    bool canStep() {
+    bool canStep(DroneDirections droneDirection) {
         glm::mat4 dwm = computeDroneWorldMatrix();
         // trasformo il vertice di riferimento del drone con la worldMatrix del drone
         glm::vec3 droneVertexWorldPos = getWorldPosition(droneBaseModel.model.vertices[315].pos, dwm);
@@ -314,7 +315,7 @@ private:
         // distanza normalizzata tra il vertice del terreno e quello del drone
         glm::vec3 droneToTerrainDirection = glm::normalize(droneVertexWorldPos - terrainVertexWorldPos);
 
-        return droneToTerrainDirection.y > MIN_DISTANCE_TO_TERRAIN;
+        return droneToTerrainDirection.y > MIN_DISTANCE_TO_TERRAIN && (position.y < MAX_VERTICAL_DISTANCE || droneDirection != DroneDirections::U);
     }
 
 public:
@@ -447,7 +448,7 @@ public:
 
         // controllo se il drone può muoversi o esiste un impedimento
         // se questo è il caso, resetto posizione e direzione del drone e della camera ai valori precedenti
-        if (!canStep()) {
+        if (!canStep(droneDirection)) {
             position = dronePositionBk;
             *cameraPosition = camPositionBk;
             direction = glm::vec3(0, direction.y, 0);
@@ -480,7 +481,7 @@ public:
         updateDroneAndCameraPosition(deltaT, directionToVectorMap[droneDirection], speed);
 
         //controllo se il movimento per inerzia non oltrepassi gli ostacoli
-        if (!canStep()) {
+        if (!canStep(droneDirection)) {
             droneSpeedPerDirectionMap[droneDirection] = 0;
             position = dronePositionBk;
             *cameraPosition = camPositionBk;
