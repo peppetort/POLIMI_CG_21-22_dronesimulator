@@ -999,6 +999,7 @@ protected:
         imageInfo.extent.height = height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = mipLevels;
+        /// uno per ogni faccia
         imageInfo.arrayLayers = 6;
         imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -1735,6 +1736,7 @@ void Texture::createCubicTextureImage(std::vector<std::string> files) {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels[6];
 
+    /// alloco texture per ognuna delle 6 facce del cubo
     for (int i = 0; i < 6; i++) {
         pixels[i] = stbi_load(files[i].c_str(), &texWidth, &texHeight,
                               &texChannels, STBI_rgb_alpha);
@@ -1874,6 +1876,8 @@ void Texture::init(BaseProject *bp, std::string file) {
     createTextureSampler();
 }
 
+
+/// inizializzo skybox allocando i parametri per le 6 facce del cubo
 void Texture::initSkyBox(BaseProject *bp, std::vector<std::string> files) {
     BP = bp;
     createCubicTextureImage(files);
@@ -1974,6 +1978,7 @@ void Pipeline::init(BaseProject *bp, const std::string &VertShader, const std::s
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    /// per permettere la visone della texture all'interno del cubo (non-manifold)
     if (isSkyBox)
         //rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;

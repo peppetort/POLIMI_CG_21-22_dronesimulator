@@ -38,6 +38,7 @@ public:
         if (first) {
             model.init(baseProjectPtr, std::move(modelPath));
             if (isSkyBox) {
+                /// different initialization for cubemap
                 texture.initSkyBox(baseProjectPtr, texturePath);
             } else {
                 texture.init(baseProjectPtr, texturePath[0]);
@@ -204,6 +205,7 @@ private:
     const float ROTATION_SPEED = glm::radians(60.f);
 
     const float MIN_DISTANCE_TO_TERRAIN = 0.7;
+    /// distanza massima che il drone può raggiungere in altezza
     const float MAX_VERTICAL_DISTANCE = 100;
 
     // internal variables
@@ -315,6 +317,7 @@ private:
         // distanza normalizzata tra il vertice del terreno e quello del drone
         glm::vec3 droneToTerrainDirection = glm::normalize(droneVertexWorldPos - terrainVertexWorldPos);
 
+        /// controllo anche la posizone in altezza
         return droneToTerrainDirection.y > MIN_DISTANCE_TO_TERRAIN && (position.y < MAX_VERTICAL_DISTANCE || droneDirection != DroneDirections::U);
     }
 

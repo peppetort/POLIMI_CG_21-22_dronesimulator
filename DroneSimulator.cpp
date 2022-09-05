@@ -98,8 +98,11 @@ protected:
                 {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_VERTEX_BIT},
                 {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
         });
+
+        /// is skyBox server per impostare la rasterization a clockwise per visuliozzare la texture nelle faccie interne del cubo
         skyBoxPipeline.init(this, "shaders/shaderSkyBoxVert.spv", "shaders/shaderSkyBoxFrag.spv",
                             {&SkyBoxDescriptorSetLayout}, first, true);
+        /// passo il modello del cubo dello skybox e una texture per ogni lato del cubo
         skyboxBaseModel.init("models/SkyBox.obj",
                              {"textures/posx.png", "textures/negx.png", "textures/posy.png", "textures/negy.png",
                               "textures/posz.png", "textures/negz.png"}, first, true);
@@ -279,10 +282,15 @@ protected:
                                      swapChainExtent.width / (float) swapChainExtent.height,
                                      0.1f, 8 * farPlane);
 
-        // remove comment if wants to translate skybox with drone
-        glm::mat4 worldMatrix = //glm::translate(glm::mat4(1.0f), drone.position) *
-                                glm::translate(glm::mat4(1.0f), glm::vec3(78.0f, -20.f, -78.0f)) *
-                                glm::scale(glm::mat4(1.0f), glm::vec3(83.5f));
+        // cubemap fissa scalato e allineato con il terreno
+/*        glm::mat4 worldMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(78.0f, -5.f, -78.0f)) *
+                                glm::scale(glm::mat4(1.0f), glm::vec3(83.5f));*/
+
+        // cubemap solidale con il drone
+        glm::mat4 worldMatrix = glm::translate(glm::mat4(1.0f), drone.position) *
+                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -5.f, 0.0f)) *
+                glm::scale(glm::mat4(1.0f), glm::vec3(83.5f));
+
 
         subo.proj[1][1] *= -1;
         skyboxBaseModel.draw(currentImage, &subo, &dataSB, &device, worldMatrix);

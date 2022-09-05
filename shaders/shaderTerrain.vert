@@ -23,5 +23,7 @@ void main() {
 	fragViewDir  = (gubo.view[3]).xyz - (ubo.model * vec4(pos,  1.0)).xyz;
 	fragNorm     = (ubo.model * vec4(norm, 0.0)).xyz;
 	fragTexCoord = texCoord;
-	v_fogDepth = -( gubo.view * ubo.model * vec4(pos, 1.0)).z;
+	//v_fogDepth = -( gubo.view * ubo.model * vec4(pos, 1.0)).z;
+	// nebbai eliminata
+	v_fogDepth = 0.f;
 }
